@@ -2,9 +2,9 @@
 pragma solidity >=0.8.0;
 
 import "@gnosis.pm/zodiac/contracts/core/Module.sol";
-import "./interfaces/RealitioV3.sol";
+import "usingtellor/contracts/UsingTellor.sol";
 
-abstract contract RealityModule is Module {
+abstract contract RealityModule is Module, UsingTellor {
     bytes32 public constant INVALIDATED =
         0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
 
@@ -32,7 +32,6 @@ abstract contract RealityModule is Module {
         address target
     );
 
-    RealitioV3 public oracle;
     uint256 public template;
     uint32 public questionTimeout;
     uint32 public questionCooldown;
@@ -49,7 +48,7 @@ abstract contract RealityModule is Module {
     /// @param _owner Address of the owner
     /// @param _avatar Address of the avatar (e.g. a Safe)
     /// @param _target Address of the contract that will call exec function
-    /// @param _oracle Address of the oracle (e.g. Realitio)
+    /// @param _tellorAddress Address of the Tellor contract
     /// @param timeout Timeout in seconds that should be required for the oracle
     /// @param cooldown Cooldown in seconds that should be required after a oracle provided answer
     /// @param expiration Duration that a positive answer of the oracle is valid in seconds (or 0 if valid forever)
@@ -61,19 +60,18 @@ abstract contract RealityModule is Module {
         address _owner,
         address _avatar,
         address _target,
-        RealitioV3 _oracle,
+        address payable _tellorAddress,
         uint32 timeout,
         uint32 cooldown,
         uint32 expiration,
         uint256 bond,
         uint256 templateId,
         address arbitrator
-    ) {
+    ) UsingTellor(_tellorAddress) {
         bytes memory initParams = abi.encode(
             _owner,
             _avatar,
             _target,
-            _oracle,
             timeout,
             cooldown,
             expiration,
@@ -89,7 +87,6 @@ abstract contract RealityModule is Module {
             address _owner,
             address _avatar,
             address _target,
-            RealitioV3 _oracle,
             uint32 timeout,
             uint32 cooldown,
             uint32 expiration,
@@ -102,7 +99,6 @@ abstract contract RealityModule is Module {
                     address,
                     address,
                     address,
-                    RealitioV3,
                     uint32,
                     uint32,
                     uint32,
@@ -121,7 +117,6 @@ abstract contract RealityModule is Module {
         );
         avatar = _avatar;
         target = _target;
-        oracle = _oracle;
         answerExpiration = expiration;
         questionTimeout = timeout;
         questionCooldown = cooldown;
@@ -218,17 +213,13 @@ abstract contract RealityModule is Module {
                 currentQuestionId != INVALIDATED,
                 "This proposal has been marked as invalid"
             );
-            require(
-                oracle.resultFor(currentQuestionId) == INVALIDATED,
-                "Previous proposal was not invalidated"
-            );
         } else {
             require(
                 questionIds[questionHash] == bytes32(0),
                 "Proposal has already been submitted"
             );
         }
-        bytes32 expectedQuestionId = getQuestionId(question, nonce);
+        bytes32 expectedQuestionId = getQuestionId(proposalId, nonce);
         // Set the question hash for this question id
         questionIds[questionHash] = expectedQuestionId;
         bytes32 questionId = askQuestion(question, nonce);
@@ -276,15 +267,6 @@ abstract contract RealityModule is Module {
         require(
             questionId != bytes32(0),
             "No question id set for provided proposal"
-        );
-        require(
-            oracle.resultFor(questionId) == bytes32(uint256(1)),
-            "Only positive answers can expire"
-        );
-        uint32 finalizeTs = oracle.getFinalizeTS(questionId);
-        require(
-            finalizeTs + uint256(expirationDuration) < block.timestamp,
-            "Answer has not expired yet"
         );
         questionIds[questionHash] = INVALIDATED;
     }
@@ -354,18 +336,7 @@ abstract contract RealityModule is Module {
             txIndex
         );
         require(txHashes[txIndex] == txHash, "Unexpected transaction hash");
-
-        // Check that the result of the question is 1 (true)
-        require(
-            oracle.resultFor(questionId) == bytes32(uint256(1)),
-            "Transaction was not approved"
-        );
-        uint256 minBond = minimumBond;
-        require(
-            minBond == 0 || minBond <= oracle.getBond(questionId),
-            "Bond on question not high enough"
-        );
-        uint32 finalizeTs = oracle.getFinalizeTS(questionId);
+        uint256 finalizeTs = getTimestampbyQueryIdandIndex(questionId, uint32(0));
         // The answer is valid in the time after the cooldown and before the expiration time (if set).
         require(
             finalizeTs + uint256(questionCooldown) < block.timestamp,
@@ -427,8 +398,6 @@ abstract contract RealityModule is Module {
                     contentHash,
                     questionArbitrator,
                     questionTimeout,
-                    minimumBond,
-                    oracle,
                     this,
                     nonce
                 )
