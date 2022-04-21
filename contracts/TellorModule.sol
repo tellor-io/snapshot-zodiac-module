@@ -205,7 +205,6 @@ contract TellorModule is Module, UsingTellor {
             );
             require(
                 _ifRetrieve == false,
-                // oracle.resultFor(currentQuestionId) == INVALIDATED,
                 "Previous proposal was not invalidated"
             );
         } else {
@@ -264,7 +263,7 @@ contract TellorModule is Module, UsingTellor {
             _ifRetrieve,
             "Only positive answers can expire"
         );
-        uint256 finalizeTs = getTimestampbyQueryIdandIndex(questionId, 0);
+        uint256 finalizeTs = getTimestampbyQueryIdandIndex(questionId, getNewValueCountbyQueryId(questionId)-1);
         require(
             finalizeTs + uint256(expirationDuration) < block.timestamp,
             "Answer has not expired yet"

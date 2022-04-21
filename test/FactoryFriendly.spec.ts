@@ -6,13 +6,19 @@ import { BigNumber } from "ethers";
 
 const FIRST_ADDRESS = "0x0000000000000000000000000000000000000001";
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+let tellorOracleAddress: string;
+
 const saltNonce = "0xfa";
+
+const {
+  abi,
+  bytecode,
+} = require("usingtellor/artifacts/contracts/TellorPlayground.sol/TellorPlayground.json");
 
 describe("Module works with factory", () => {
   const timeout = 60;
   const cooldown = 60;
   const expiration = 120;
-  const bond = BigNumber.from(10000);
   const templateId = BigNumber.from(1);
 
   const paramsTypes = [
@@ -24,27 +30,32 @@ describe("Module works with factory", () => {
     "uint32",
     "uint32",
     "uint256",
-    "uint256",
     "address",
   ];
 
   const baseSetup = deployments.createFixture(async () => {
     await deployments.fixture();
+
+    const TellorOracle = await ethers.getContractFactory(abi, bytecode);
+    const tellorOracle = await TellorOracle.deploy();
+    await tellorOracle.deployed();
+
+    tellorOracleAddress = tellorOracle.address;
+
     const Factory = await hre.ethers.getContractFactory("ModuleProxyFactory");
-    const RealityModuleETH = await hre.ethers.getContractFactory("RealityModuleETH");
+    const TellorModule = await hre.ethers.getContractFactory("TellorModule");
     const factory = await Factory.deploy();
 
-    const masterCopy = await RealityModuleETH.deploy(
+    const masterCopy = await TellorModule.deploy(
       FIRST_ADDRESS,
       FIRST_ADDRESS,
       FIRST_ADDRESS,
-      ZERO_ADDRESS,
+      tellorOracleAddress,
       1,
       0,
       60,
       0,
-      0,
-      ZERO_ADDRESS
+      tellorOracleAddress
     );
 
     return { factory, masterCopy };
@@ -58,13 +69,12 @@ describe("Module works with factory", () => {
       safe.address,
       safe.address,
       safe.address,
-      oracle.address,
+      tellorOracleAddress,
       timeout,
       cooldown,
       expiration,
-      bond,
       templateId,
-      oracle.address,
+      tellorOracleAddress,
     ]);
 
     await expect(masterCopy.setUp(encodedParams)).to.be.revertedWith(
@@ -79,13 +89,12 @@ describe("Module works with factory", () => {
       safe.address,
       safe.address,
       safe.address,
-      oracle.address,
+      tellorOracleAddress,
       timeout,
       cooldown,
       expiration,
-      bond,
       templateId,
-      oracle.address,
+      tellorOracleAddress,
     ];
     const encodedParams = [new AbiCoder().encode(paramsTypes, paramsValues)];
     const initParams = masterCopy.interface.encodeFunctionData(
@@ -104,13 +113,12 @@ describe("Module works with factory", () => {
     );
 
     const newProxy = await hre.ethers.getContractAt(
-      "RealityModuleETH",
+      "TellorModule",
       newProxyAddress
     );
     expect(await newProxy.questionTimeout()).to.be.eq(timeout);
     expect(await newProxy.questionCooldown()).to.be.eq(cooldown);
     expect(await newProxy.answerExpiration()).to.be.eq(expiration);
-    expect(await newProxy.minimumBond()).to.be.eq(BigNumber.from(bond));
     expect(await newProxy.template()).to.be.eq(BigNumber.from(templateId));
   });
 });
