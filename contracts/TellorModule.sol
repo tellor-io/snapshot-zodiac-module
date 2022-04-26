@@ -204,8 +204,8 @@ contract TellorModule is Module, UsingTellor {
                 "This proposal has been marked as invalid"
             );
             require(
-                _ifRetrieve == false,
-                "Previous proposal was not invalidated"
+                _ifRetrieve,
+                "No data retrieved"
             );
         } else {
             require(

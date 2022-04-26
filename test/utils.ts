@@ -2,8 +2,9 @@ import { Contract } from "ethers";
 import { defaultAbiCoder } from "ethers/lib/utils";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 
-export const buildMockInitializerParams = (mock: Contract): string => {
-    
+export const buildMockInitializerParams = (
+  mock: Contract
+): string => {
   return defaultAbiCoder.encode(
     [
       "address",
@@ -16,17 +17,7 @@ export const buildMockInitializerParams = (mock: Contract): string => {
       "uint256",
       "address",
     ],
-    [
-      mock.address,
-      mock.address,
-      mock.address,
-      mock.address,
-      42,
-      23,
-      0,
-      1337,
-      mock.address,
-    ]
+    [mock.address, mock.address, mock.address, mock.address, 42, 23, 0, 1337, mock.address]
   );
 };
 
