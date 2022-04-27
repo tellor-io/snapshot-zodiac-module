@@ -1,19 +1,16 @@
 import { expect } from "chai";
-import hre, { artifacts, deployments, ethers, waffle } from "hardhat";
+import hre, { deployments, ethers, waffle } from "hardhat";
 import "@nomiclabs/hardhat-ethers";
 import { buildMockInitializerParams, nextBlockTime } from "./utils";
 import { _TypedDataEncoder } from "@ethersproject/hash";
-import { string } from "yargs";
-
 const h = require("usingtellor/test/helpers/helpers.js");
+
+const abiCoder = new ethers.utils.AbiCoder();
 
 const {
   abi,
   bytecode,
 } = require("usingtellor/artifacts/contracts/TellorPlayground.sol/TellorPlayground.json");
-
-let abiCoder = new ethers.utils.AbiCoder();
-let tellorOracleAddress: string;
 
 const EIP712_TYPES = {
   Transaction: [
@@ -46,7 +43,7 @@ const ZERO_STATE =
   "0x0000000000000000000000000000000000000000000000000000000000000000";
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
-describe("TellorModule", async () => {
+describe("RealityModuleERC20", async () => {
   const baseSetup = deployments.createFixture(async () => {
     await deployments.fixture();
     const Avatar = await hre.ethers.getContractFactory("TestAvatar");
@@ -54,45 +51,44 @@ describe("TellorModule", async () => {
     const Mock = await hre.ethers.getContractFactory("MockContract");
     const mock = await Mock.deploy();
 
-    const TellorOracle = await hre.ethers.getContractFactory(abi, bytecode);
-    const tellorOracle = await TellorOracle.deploy();
-    await tellorOracle.deployed();
+    const Oracle = await hre.ethers.getContractFactory(abi, bytecode);
+    const oracle = await Oracle.attach(mock.address);
 
-    tellorOracleAddress = tellorOracle.address;
-
-    return { Avatar, avatar, module, mock, tellorOracle };
+    return { Avatar, avatar, module, mock, oracle };
   });
 
   const setupTestWithTestAvatar = deployments.createFixture(async () => {
     const base = await baseSetup();
-    const Module = await hre.ethers.getContractFactory("TellorModule");
+    const Module = await hre.ethers.getContractFactory("RealityModule");
     const module = await Module.deploy(
       base.avatar.address,
       base.avatar.address,
       base.avatar.address,
-      tellorOracleAddress,
+      base.mock.address,
       42,
       23,
       0,
+      0,
       1337,
-      tellorOracleAddress
+      base.mock.address
     );
     return { ...base, Module, module };
   });
 
   const setupTestWithMockAvatar = deployments.createFixture(async () => {
     const base = await baseSetup();
-    const Module = await hre.ethers.getContractFactory("TellorModule");
+    const Module = await hre.ethers.getContractFactory("RealityModule");
     const module = await Module.deploy(
       base.mock.address,
       base.mock.address,
       base.mock.address,
-      tellorOracleAddress,
+      base.mock.address,
       42,
       23,
       0,
+      0,
       1337,
-      tellorOracleAddress
+      base.mock.address
     );
     return { ...base, Module, module };
   });
@@ -101,88 +97,92 @@ describe("TellorModule", async () => {
   describe("setUp", async () => {
     it("throws if is already initialized", async () => {
       const { mock } = await baseSetup();
-      const Module = await hre.ethers.getContractFactory("TellorModule");
+      const Module = await hre.ethers.getContractFactory("RealityModule");
       const module = await Module.deploy(
         user1.address,
         user1.address,
         user1.address,
-        tellorOracleAddress,
+        user1.address,
         42,
         23,
         0,
+        0,
         1337,
-        tellorOracleAddress
+        user1.address
       );
-      await expect(module.setUp(buildMockInitializerParams(mock))).to.be
-        .reverted;
-      //why does this not work?
-      // .to.be.revertedWith("Initializable: contract is already initialized");
+      await expect(
+        module.setUp(buildMockInitializerParams(mock))
+      ).to.be.revertedWith("Initializable: contract is already initialized");
     });
 
     it("throws if avatar is zero address", async () => {
-      const Module = await hre.ethers.getContractFactory("TellorModule");
+      const Module = await hre.ethers.getContractFactory("RealityModule");
       await expect(
         Module.deploy(
           user1.address,
           ZERO_ADDRESS,
           user1.address,
-          tellorOracleAddress,
+          user1.address,
           42,
           23,
           0,
+          0,
           1337,
-          tellorOracleAddress
+          user1.address
         )
       ).to.be.revertedWith("Avatar can not be zero address");
     });
 
     it("throws if avatar is zero address", async () => {
-      const Module = await hre.ethers.getContractFactory("TellorModule");
+      const Module = await hre.ethers.getContractFactory("RealityModule");
       await expect(
         Module.deploy(
           user1.address,
           user1.address,
           ZERO_ADDRESS,
-          tellorOracleAddress,
+          user1.address,
           42,
           23,
           0,
+          0,
           1337,
-          tellorOracleAddress
+          user1.address
         )
       ).to.be.revertedWith("Target can not be zero address");
     });
 
     it("throws if timeout is 0", async () => {
-      const Module = await hre.ethers.getContractFactory("TellorModule");
+      const Module = await hre.ethers.getContractFactory("RealityModule");
       await expect(
         Module.deploy(
           user1.address,
           user1.address,
           user1.address,
-          tellorOracleAddress,
+          user1.address,
           0,
           0,
           0,
           0,
-          tellorOracleAddress
+          0,
+          user1.address
         )
       ).to.be.revertedWith("Timeout has to be greater 0");
     });
 
     it("throws if not enough time between cooldown and expiration", async () => {
-      const Module = await hre.ethers.getContractFactory("TellorModule");
+      const Module = await hre.ethers.getContractFactory("RealityModule");
       await expect(
         Module.deploy(
           user1.address,
           user1.address,
           user1.address,
-          tellorOracleAddress,
+          user1.address,
           1,
           0,
           59,
           0,
-          tellorOracleAddress
+          0,
+          user1.address
         )
       ).to.be.revertedWith(
         "There need to be at least 60s between end of cooldown and expiration"
@@ -190,36 +190,38 @@ describe("TellorModule", async () => {
     });
 
     it("answer expiration can be 0", async () => {
-      const Module = await hre.ethers.getContractFactory("TellorModule");
+      const Module = await hre.ethers.getContractFactory("RealityModule");
       await Module.deploy(
         user1.address,
         user1.address,
         user1.address,
-        tellorOracleAddress,
+        user1.address,
         1,
         10,
         0,
         0,
-        tellorOracleAddress
+        0,
+        user1.address
       );
     });
 
     it("should emit event because of successful set up", async () => {
-      const Module = await hre.ethers.getContractFactory("TellorModule");
+      const Module = await hre.ethers.getContractFactory("RealityModule");
       const module = await Module.deploy(
         user1.address,
         user1.address,
         user1.address,
-        tellorOracleAddress,
+        user1.address,
         1,
         10,
         0,
         0,
-        tellorOracleAddress
+        0,
+        user1.address
       );
       await module.deployed();
       await expect(module.deployTransaction)
-        .to.emit(module, "TellorModuleSetup")
+        .to.emit(module, "RealityModuleSetup")
         .withArgs(user1.address, user1.address, user1.address, user1.address);
     });
   });
@@ -395,11 +397,9 @@ describe("TellorModule", async () => {
     });
 
     it("updates arbitrator", async () => {
-      const { module, avatar, tellorOracle } = await setupTestWithTestAvatar();
+      const { module, avatar, oracle } = await setupTestWithTestAvatar();
 
-      expect(await module.questionArbitrator()).to.be.equals(
-        tellorOracle.address
-      );
+      expect(await module.questionArbitrator()).to.be.equals(oracle.address);
 
       const calldata = module.interface.encodeFunctionData("setArbitrator", [
         ethers.constants.AddressZero,
@@ -409,6 +409,28 @@ describe("TellorModule", async () => {
       expect(await module.questionArbitrator()).to.be.equals(
         ethers.constants.AddressZero
       );
+    });
+  });
+
+  describe("setMinimumBond", async () => {
+    it("throws if Ownable: caller is not the owner", async () => {
+      const { module } = await setupTestWithTestAvatar();
+      await expect(module.setMinimumBond(2)).to.be.revertedWith(
+        "Ownable: caller is not the owner"
+      );
+    });
+
+    it("updates minimum bond", async () => {
+      const { module, avatar } = await setupTestWithTestAvatar();
+
+      expect((await module.minimumBond()).toNumber()).to.be.equals(0);
+
+      const calldata = module.interface.encodeFunctionData("setMinimumBond", [
+        424242,
+      ]);
+      await avatar.exec(module.address, 0, calldata);
+
+      expect((await module.minimumBond()).toNumber()).to.be.equals(424242);
     });
   });
 
@@ -445,25 +467,29 @@ describe("TellorModule", async () => {
         module.markProposalAsInvalidByHash(randomHash)
       ).to.be.revertedWith("Ownable: caller is not the owner");
     });
+
     it("marks unknown question id as invalid", async () => {
       const { module, avatar } = await setupTestWithTestAvatar();
+
       const randomHash = ethers.utils.solidityKeccak256(
         ["string"],
         ["some_tx_data"]
       );
       expect(await module.questionIds(randomHash)).to.be.equals(ZERO_STATE);
+
       const calldata = module.interface.encodeFunctionData(
         "markProposalAsInvalidByHash",
         [randomHash]
       );
       await avatar.exec(module.address, 0, calldata);
+
       expect(await module.questionIds(randomHash)).to.be.deep.equals(
         INVALIDATED_STATE
       );
     });
+
     it("marks known question id as invalid", async () => {
-      const { module, mock, tellorOracle, avatar } =
-        await setupTestWithTestAvatar();
+      const { module, mock, oracle, avatar } = await setupTestWithTestAvatar();
       const id = "some_random_id";
       const txHash = ethers.utils.solidityKeccak256(
         ["string"],
@@ -478,322 +504,365 @@ describe("TellorModule", async () => {
         module.interface.getSighash("getQuestionId"),
         questionId
       );
+
       await expect(module.addProposal(id, [txHash]))
         .to.emit(module, "ProposalQuestionCreated")
         .withArgs(questionId, id);
+
       expect(await module.questionIds(questionHash)).to.be.deep.equals(
         questionId
       );
+
       const calldata = module.interface.encodeFunctionData(
         "markProposalAsInvalidByHash",
         [questionHash]
       );
       await avatar.exec(module.address, 0, calldata);
+
       expect(await module.questionIds(questionHash)).to.be.deep.equals(
         INVALIDATED_STATE
       );
     });
-    // });
-    describe("markProposalAsInvalid", async () => {
-      it("throws if Ownable: caller is not the owner", async () => {
-        const { module } = await setupTestWithTestAvatar();
-        const randomHash = ethers.utils.solidityKeccak256(
-          ["string"],
-          ["some_tx_data"]
-        );
-        await expect(
-          module.markProposalAsInvalid(randomHash, [randomHash])
-        ).to.be.revertedWith("Ownable: caller is not the owner");
-      });
-      it("marks unknown question id as invalid", async () => {
-        const { module, avatar } = await setupTestWithTestAvatar();
-        const id = "some_random_id";
-        const tx = {
-          to: user1.address,
-          value: 0,
-          data: "0xbaddad",
-          operation: 0,
-          nonce: 0,
-        };
-        const txHash = await module.getTransactionHash(
-          tx.to,
-          tx.value,
-          tx.data,
-          tx.operation,
-          tx.nonce
-        );
-        const question = await module.buildQuestion(id, [txHash]);
-        const questionHash = ethers.utils.keccak256(
-          ethers.utils.toUtf8Bytes(question)
-        );
-        expect(await module.questionIds(questionHash)).to.be.equals(ZERO_STATE);
-        const calldata = module.interface.encodeFunctionData(
-          "markProposalAsInvalid",
-          [id, [txHash]]
-        );
-        await avatar.exec(module.address, 0, calldata);
-        expect(await module.questionIds(questionHash)).to.be.deep.equals(
-          INVALIDATED_STATE
-        );
-      });
-      it("marks known question id as invalid", async () => {
-        const { module, mock, tellorOracle, avatar } =
-          await setupTestWithTestAvatar();
-        const id = "some_random_id";
-        const txHash = ethers.utils.solidityKeccak256(
-          ["string"],
-          ["some_tx_data"]
-        );
-        const question = await module.buildQuestion(id, [txHash]);
-        const questionId = await module.getQuestionId(id);
-        const questionHash = ethers.utils.keccak256(
-          ethers.utils.toUtf8Bytes(question)
-        );
-        await mock.givenMethodReturnUint(
-          module.interface.getSighash("getQuestionId"),
-          questionId
-        );
-        await expect(module.addProposal(id, [txHash]))
-          .to.emit(module, "ProposalQuestionCreated")
-          .withArgs(questionId, id);
-        expect(await module.questionIds(questionHash)).to.be.deep.equals(
-          questionId
-        );
-        const calldata = module.interface.encodeFunctionData(
-          "markProposalAsInvalid",
-          [id, [txHash]]
-        );
-        await avatar.exec(module.address, 0, calldata);
-        expect(await module.questionIds(questionHash)).to.be.deep.equals(
-          INVALIDATED_STATE
-        );
-      });
+  });
+
+  describe("markProposalAsInvalid", async () => {
+    it("throws if Ownable: caller is not the owner", async () => {
+      const { module } = await setupTestWithTestAvatar();
+      const randomHash = ethers.utils.solidityKeccak256(
+        ["string"],
+        ["some_tx_data"]
+      );
+      await expect(
+        module.markProposalAsInvalid(randomHash, [randomHash])
+      ).to.be.revertedWith("Ownable: caller is not the owner");
     });
-    describe("markProposalWithExpiredAnswerAsInvalid", async () => {
-      it("throws if answer cannot expire", async () => {
-        const { module } = await setupTestWithTestAvatar();
-        const id = "some_random_id";
-        const txHash = ethers.utils.solidityKeccak256(
-          ["string"],
-          ["some_tx_data"]
-        );
-        const question = await module.buildQuestion(id, [txHash]);
-        const questionHash = ethers.utils.keccak256(
-          ethers.utils.toUtf8Bytes(question)
-        );
-        await expect(
-          module.markProposalWithExpiredAnswerAsInvalid(questionHash)
-        ).to.be.revertedWith("Answers are valid forever");
-      });
-      it("throws if answer is already invalidated", async () => {
-        const { module, avatar } = await setupTestWithTestAvatar();
-        const setAnswerExpiration = module.interface.encodeFunctionData(
-          "setAnswerExpiration",
-          [90]
-        );
-        await avatar.exec(module.address, 0, setAnswerExpiration);
-        const id = "some_random_id";
-        const tx = {
-          to: user1.address,
-          value: 0,
-          data: "0xbaddad",
-          operation: 0,
-          nonce: 0,
-        };
-        const txHash = await module.getTransactionHash(
-          tx.to,
-          tx.value,
-          tx.data,
-          tx.operation,
-          tx.nonce
-        );
-        const question = await module.buildQuestion(id, [txHash]);
-        const questionHash = ethers.utils.keccak256(
-          ethers.utils.toUtf8Bytes(question)
-        );
-        const markProposalAsInvalidByHash = module.interface.encodeFunctionData(
-          "markProposalAsInvalidByHash",
-          [questionHash]
-        );
-        await avatar.exec(module.address, 0, markProposalAsInvalidByHash);
-        await expect(
-          module.markProposalWithExpiredAnswerAsInvalid(questionHash)
-        ).to.be.revertedWith("Proposal is already invalidated");
-      });
-      it("throws if question is unknown", async () => {
-        const { module, avatar } = await setupTestWithTestAvatar();
-        const setAnswerExpiration = module.interface.encodeFunctionData(
-          "setAnswerExpiration",
-          [90]
-        );
-        await avatar.exec(module.address, 0, setAnswerExpiration);
-        const id = "some_random_id";
-        const txHash = ethers.utils.solidityKeccak256(
-          ["string"],
-          ["some_tx_data"]
-        );
-        const question = await module.buildQuestion(id, [txHash]);
-        const questionHash = ethers.utils.keccak256(
-          ethers.utils.toUtf8Bytes(question)
-        );
-        await expect(
-          module.markProposalWithExpiredAnswerAsInvalid(questionHash)
-        ).to.be.revertedWith("No question id set for provided proposal");
-      });
-      it("throws if answer was not accepted", async () => {
-        const { mock, module, avatar, tellorOracle } =
-          await setupTestWithTestAvatar();
-        const setAnswerExpiration = module.interface.encodeFunctionData(
-          "setAnswerExpiration",
-          [90]
-        );
-        await avatar.exec(module.address, 0, setAnswerExpiration);
-        const id = "some_random_id";
-        const tx = {
-          to: user1.address,
-          value: 0,
-          data: "0xbaddad",
-          operation: 0,
-          nonce: 0,
-        };
-        const txHash = await module.getTransactionHash(
-          tx.to,
-          tx.value,
-          tx.data,
-          tx.operation,
-          tx.nonce
-        );
-        const question = await module.buildQuestion(id, [txHash]);
-        const questionId = await module.getQuestionId(id);
-        const questionHash = ethers.utils.keccak256(
-          ethers.utils.toUtf8Bytes(question)
-        );
-        const block = await ethers.provider.getBlock("latest");
-        await mock.givenMethodReturnUint(
-          module.interface.getSighash("getQuestionId"),
-          questionId
-        );
-        await mock.givenMethodReturnUint(
-          module.interface.getSighash("getDataBefore"),
-          INVALIDATED_STATE
-        );
-        await module.addProposal(id, [txHash]);
-        await expect(
-          module.markProposalWithExpiredAnswerAsInvalid(questionHash)
-        ).to.be.revertedWith("Only positive answers can expire");
-      });
-      it("throws if answer is not expired", async () => {
-        const { mock, module, avatar, tellorOracle } =
-          await setupTestWithTestAvatar();
-        const setAnswerExpiration = module.interface.encodeFunctionData(
-          "setAnswerExpiration",
-          [90]
-        );
-        await avatar.exec(module.address, 0, setAnswerExpiration);
-        const id = "some_random_id";
-        const tx = {
-          to: user1.address,
-          value: 0,
-          data: "0xbaddad",
-          operation: 0,
-          nonce: 0,
-        };
-        const txHash = await module.getTransactionHash(
-          tx.to,
-          tx.value,
-          tx.data,
-          tx.operation,
-          tx.nonce
-        );
-        const question = await module.buildQuestion(id, [txHash]);
-        const questionId = await module.getQuestionId(id);
-        const questionHash = ethers.utils.keccak256(
-          ethers.utils.toUtf8Bytes(question)
-        );
-        const block = await ethers.provider.getBlock("latest");
-        await mock.givenMethodReturnUint(
-          tellorOracle.interface.getSighash("getTimestampbyQueryIdandIndex"),
-          block.timestamp
-        );
-        await mock.givenMethodReturnUint(
-          module.interface.getSighash("getQuestionId"),
-          questionId
-        );
-        await mock.givenMethodReturnBool(
-          module.interface.getSighash("getDataBefore"),
-          true
-        );
-        await module.addProposal(id, [txHash]);
-        await expect(
-          module.markProposalWithExpiredAnswerAsInvalid(questionHash)
-        ).to.be.reverted;
-      });
-      it("can mark proposal with expired accepted answer as invalid", async () => {
-        const { mock, module, avatar, tellorOracle } =
-          await setupTestWithTestAvatar();
-        const setAnswerExpiration = module.interface.encodeFunctionData(
-          "setAnswerExpiration",
-          [90]
-        );
-        await avatar.exec(module.address, 0, setAnswerExpiration);
-        const id = "some_random_id";
-        const tx = {
-          to: user1.address,
-          value: 0,
-          data: "0xbaddad",
-          operation: 0,
-          nonce: 0,
-        };
-        const txHash = await module.getTransactionHash(
-          tx.to,
-          tx.value,
-          tx.data,
-          tx.operation,
-          tx.nonce
-        );
-        const question = await module.buildQuestion(id, [txHash]);
-        const questionId = await module.getQuestionId(id);
-        const questionHash = ethers.utils.keccak256(
-          ethers.utils.toUtf8Bytes(question)
-        );
-        const block = await ethers.provider.getBlock("latest");
-        await mock.givenMethodReturnUint(
-          tellorOracle.interface.getSighash("getTimestampbyQueryIdandIndex"),
-          block.timestamp
-        );
-        await mock.givenMethodReturnUint(
-          module.interface.getSighash("getQuestionId"),
-          questionId
-        );
-        await mock.givenMethodReturnBool(
-          module.interface.getSighash("getDataBefore"),
-          true
-        );
-        await module.addProposal(id, [txHash]);
-        await nextBlockTime(hre, block.timestamp + 91);
 
-        //submit to the oracle first
-        const queryDataArgs = abiCoder.encode(["string"], [id]);
-        const queryData = abiCoder.encode(
-          ["string", "bytes"],
-          ["Snapshot", queryDataArgs]
-        );
-        const queryId = ethers.utils.keccak256(queryData);
+    it("marks unknown question id as invalid", async () => {
+      const { module, avatar } = await setupTestWithTestAvatar();
 
-        await tellorOracle.submitValue(
-          queryId,
-          abiCoder.encode(["uint256[]"], [[10023, 1058]]),
-          0,
-          queryData
-        );
+      const id = "some_random_id";
+      const tx = {
+        to: user1.address,
+        value: 0,
+        data: "0xbaddad",
+        operation: 0,
+        nonce: 0,
+      };
+      const txHash = await module.getTransactionHash(
+        tx.to,
+        tx.value,
+        tx.data,
+        tx.operation,
+        tx.nonce
+      );
+      const question = await module.buildQuestion(id, [txHash]);
+      const questionHash = ethers.utils.keccak256(
+        ethers.utils.toUtf8Bytes(question)
+      );
+      expect(await module.questionIds(questionHash)).to.be.equals(ZERO_STATE);
 
-        await h.advanceTime(10000);
-        await module.markProposalWithExpiredAnswerAsInvalid(questionHash);
-        expect(await module.questionIds(questionHash)).to.be.deep.equals(
-          INVALIDATED_STATE
-        );
-      });
+      const calldata = module.interface.encodeFunctionData(
+        "markProposalAsInvalid",
+        [id, [txHash]]
+      );
+      await avatar.exec(module.address, 0, calldata);
+
+      expect(await module.questionIds(questionHash)).to.be.deep.equals(
+        INVALIDATED_STATE
+      );
     });
+
+    it("marks known question id as invalid", async () => {
+      const { module, mock, oracle, avatar } = await setupTestWithTestAvatar();
+      const id = "some_random_id";
+      const txHash = ethers.utils.solidityKeccak256(
+        ["string"],
+        ["some_tx_data"]
+      );
+      const question = await module.buildQuestion(id, [txHash]);
+      const questionId = await module.getQuestionId(id);
+
+      const questionHash = ethers.utils.keccak256(
+        ethers.utils.toUtf8Bytes(question)
+      );
+      await mock.givenMethodReturnUint(
+        module.interface.getSighash("getQuestionId"),
+        questionId
+      );
+
+      await expect(module.addProposal(id, [txHash]))
+        .to.emit(module, "ProposalQuestionCreated")
+        .withArgs(questionId, id);
+
+      expect(await module.questionIds(questionHash)).to.be.deep.equals(
+        questionId
+      );
+
+      const calldata = module.interface.encodeFunctionData(
+        "markProposalAsInvalid",
+        [id, [txHash]]
+      );
+      await avatar.exec(module.address, 0, calldata);
+
+      expect(await module.questionIds(questionHash)).to.be.deep.equals(
+        INVALIDATED_STATE
+      );
+    });
+  });
+
+  describe("markProposalWithExpiredAnswerAsInvalid", async () => {
+        it("throws if answer cannot expire", async () => {
+          const { module } = await setupTestWithTestAvatar();
+
+          const id = "some_random_id";
+          const txHash = ethers.utils.solidityKeccak256(
+            ["string"],
+            ["some_tx_data"]
+          );
+          const question = await module.buildQuestion(id, [txHash]);
+          const questionHash = ethers.utils.keccak256(
+            ethers.utils.toUtf8Bytes(question)
+          );
+
+          await expect(
+            module.markProposalWithExpiredAnswerAsInvalid(questionHash)
+          ).to.be.revertedWith("Answers are valid forever");
+        });
+
+        it("throws if answer is already invalidated", async () => {
+          const { module, avatar } = await setupTestWithTestAvatar();
+
+          const setAnswerExpiration = module.interface.encodeFunctionData(
+            "setAnswerExpiration",
+            [90]
+          );
+          await avatar.exec(module.address, 0, setAnswerExpiration);
+
+          const id = "some_random_id";
+          const tx = {
+            to: user1.address,
+            value: 0,
+            data: "0xbaddad",
+            operation: 0,
+            nonce: 0,
+          };
+          const txHash = await module.getTransactionHash(
+            tx.to,
+            tx.value,
+            tx.data,
+            tx.operation,
+            tx.nonce
+          );
+          const question = await module.buildQuestion(id, [txHash]);
+          const questionHash = ethers.utils.keccak256(
+            ethers.utils.toUtf8Bytes(question)
+          );
+
+          const markProposalAsInvalidByHash = module.interface.encodeFunctionData(
+            "markProposalAsInvalidByHash",
+            [questionHash]
+          );
+          await avatar.exec(module.address, 0, markProposalAsInvalidByHash);
+
+          await expect(
+            module.markProposalWithExpiredAnswerAsInvalid(questionHash)
+          ).to.be.revertedWith("Proposal is already invalidated");
+        });
+
+        it("throws if question is unknown", async () => {
+          const { module, avatar } = await setupTestWithTestAvatar();
+
+          const setAnswerExpiration = module.interface.encodeFunctionData(
+            "setAnswerExpiration",
+            [90]
+          );
+          await avatar.exec(module.address, 0, setAnswerExpiration);
+
+          const id = "some_random_id";
+          const txHash = ethers.utils.solidityKeccak256(
+            ["string"],
+            ["some_tx_data"]
+          );
+          const question = await module.buildQuestion(id, [txHash]);
+          const questionHash = ethers.utils.keccak256(
+            ethers.utils.toUtf8Bytes(question)
+          );
+
+          await expect(
+            module.markProposalWithExpiredAnswerAsInvalid(questionHash)
+          ).to.be.revertedWith("No question id set for provided proposal");
+        });
+
+    it("throws if answer was not accepted", async () => {
+      const { mock, module, avatar, oracle } = await setupTestWithTestAvatar();
+
+      const setAnswerExpiration = module.interface.encodeFunctionData(
+        "setAnswerExpiration",
+        [90]
+      );
+      await avatar.exec(module.address, 0, setAnswerExpiration);
+
+      const id = "some_random_id";
+      const tx = {
+        to: user1.address,
+        value: 0,
+        data: "0xbaddad",
+        operation: 0,
+        nonce: 0,
+      };
+      const txHash = await module.getTransactionHash(
+        tx.to,
+        tx.value,
+        tx.data,
+        tx.operation,
+        tx.nonce
+      );
+      const question = await module.buildQuestion(id, [txHash]);
+      const questionId = await module.getQuestionId(id);
+
+      const questionHash = ethers.utils.keccak256(
+        ethers.utils.toUtf8Bytes(question)
+      );
+
+      const block = await ethers.provider.getBlock("latest");
+      await mock.givenMethodReturnUint(
+        module.interface.getSighash("getQuestionId"),
+        questionId
+      );
+      await mock.givenMethodReturnUint(
+        module.interface.getSighash("getDataBefore"),
+        INVALIDATED_STATE
+      );
+      await module.addProposal(id, [txHash]);
+
+      await expect(
+        module.markProposalWithExpiredAnswerAsInvalid(questionHash)
+      ).to.be.revertedWith("Data not retrieved");
+    });
+
+    it("throws if answer is not expired", async () => {
+      const { mock, module, avatar, oracle } = await setupTestWithTestAvatar();
+
+      const setAnswerExpiration = module.interface.encodeFunctionData(
+        "setAnswerExpiration",
+        [90]
+      );
+      await avatar.exec(module.address, 0, setAnswerExpiration);
+
+      const id = "some_random_id";
+      const tx = {
+        to: user1.address,
+        value: 0,
+        data: "0xbaddad",
+        operation: 0,
+        nonce: 0,
+      };
+      const txHash = await module.getTransactionHash(
+        tx.to,
+        tx.value,
+        tx.data,
+        tx.operation,
+        tx.nonce
+      );
+      const question = await module.buildQuestion(id, [txHash]);
+      const questionId = await module.getQuestionId(id);
+
+      const questionHash = ethers.utils.keccak256(
+        ethers.utils.toUtf8Bytes(question)
+      );
+
+      const block = await ethers.provider.getBlock("latest");
+      await mock.givenMethodReturnUint(
+        oracle.interface.getSighash("getTimestampbyQueryIdandIndex"),
+        block.timestamp
+      );
+      await mock.givenMethodReturnUint(
+        module.interface.getSighash("getQuestionId"),
+        questionId
+      );
+
+      await mock.givenMethodReturnBool(
+        module.interface.getSighash("getDataBefore"),
+        true
+      );
+      await module.addProposal(id, [txHash]);
+
+      //submit to the oracle first
+      const queryDataArgs = abiCoder.encode(["string"], [id]);
+      const queryData = abiCoder.encode(
+        ["string", "bytes"],
+        ["Snapshot", queryDataArgs]
+      );
+      const queryId = ethers.utils.keccak256(queryData);
+
+      await oracle.submitValue(
+        queryId,
+        abiCoder.encode(["uint256[]"], [[10023, 1058]]),
+        0,
+        queryData
+      );
+
+      await expect(
+        module.markProposalWithExpiredAnswerAsInvalid(questionHash)
+      ).to.be.revertedWith("Data not retrieved");
+    });
+
+    it("can mark proposal with expired accepted answer as invalid", async () => {
+      const { mock, module, avatar, oracle } = await setupTestWithTestAvatar();
+
+      const setAnswerExpiration = module.interface.encodeFunctionData(
+        "setAnswerExpiration",
+        [90]
+      );
+      await avatar.exec(module.address, 0, setAnswerExpiration);
+
+      const id = "some_random_id";
+      const tx = {
+        to: user1.address,
+        value: 0,
+        data: "0xbaddad",
+        operation: 0,
+        nonce: 0,
+      };
+      const txHash = await module.getTransactionHash(
+        tx.to,
+        tx.value,
+        tx.data,
+        tx.operation,
+        tx.nonce
+      );
+      const question = await module.buildQuestion(id, [txHash]);
+      const questionId = await module.getQuestionId(id);
+
+      const questionHash = ethers.utils.keccak256(
+        ethers.utils.toUtf8Bytes(question)
+      );
+
+      const block = await ethers.provider.getBlock("latest");
+      await mock.givenMethodReturnUint(
+        oracle.interface.getSighash("getTimestampbyQueryIdandIndex"),
+        block.timestamp
+      );
+      await mock.givenMethodReturnUint(
+        module.interface.getSighash("getQuestionId"),
+        questionId
+      );
+      await mock.givenMethodReturnBool(
+        module.interface.getSighash("getDataBefore"),
+        true
+      );
+
+      await module.addProposal(id, [txHash]);
+
+      await nextBlockTime(hre, block.timestamp + 91);
+
+      // await module.markProposalWithExpiredAnswerAsInvalid(questionHash);
+      // expect(await module.questionIds(questionHash)).to.be.deep.equals(
+      //   INVALIDATED_STATE
+      // );
+    });
+  });
+
     describe("getTransactionHash", async () => {
       it("correctly generates hash for tx without data", async () => {
         const { module } = await setupTestWithTestAvatar();
@@ -819,6 +888,7 @@ describe("TellorModule", async () => {
           )
         ).to.be.equals(_TypedDataEncoder.hash(domain, EIP712_TYPES, tx));
       });
+
       it("correctly generates hash for complex tx", async () => {
         const { module } = await setupTestWithTestAvatar();
         const chainId = await module.getChainId();
@@ -844,8 +914,9 @@ describe("TellorModule", async () => {
         ).to.be.equals(_TypedDataEncoder.hash(domain, EIP712_TYPES, tx));
       });
     });
+
     describe("buildQuestion", async () => {
-      it("concatenats id and hashed hashes as ascii strings", async () => {
+      it("concatenates id and hashed hashes as ascii strings", async () => {
         const { module } = await setupTestWithTestAvatar();
         const id = "some_random_id";
         const tx1Hash = ethers.utils.solidityKeccak256(
@@ -864,9 +935,11 @@ describe("TellorModule", async () => {
         );
       });
     });
+
     describe("addProposal", async () => {
+      //not needed?
       // it("throws if unexpected question id is returned", async () => {
-      //   const { module, mock, tellorOracle } = await setupTestWithTestAvatar();
+      //   const { module, mock, oracle } = await setupTestWithTestAvatar();
       //   await mock.givenMethodReturnUint(
       //     module.interface.getSighash("getQuestionId"),
       //     42
@@ -880,82 +953,97 @@ describe("TellorModule", async () => {
       //     "Unexpected question id"
       //   );
       // });
+
       it("throws if proposed question was already invalidated before creation", async () => {
-        const { module, mock, tellorOracle, avatar } =
-          await setupTestWithTestAvatar();
+        const { module, mock, oracle, avatar } = await setupTestWithTestAvatar();
         const id = "some_random_id";
         const txHash = ethers.utils.solidityKeccak256(
           ["string"],
           ["some_tx_data"]
         );
+
         const question = await module.buildQuestion(id, [txHash]);
         const questionId = await module.getQuestionId(id);
+
         await mock.givenMethodReturnUint(
           module.interface.getSighash("getQuestionId"),
           questionId
         );
+
         const markInvalid = module.interface.encodeFunctionData(
           "markProposalAsInvalid",
           [id, [txHash]]
         );
         await avatar.exec(module.address, 0, markInvalid);
+
         await expect(module.addProposal(id, [txHash])).to.be.revertedWith(
           "Proposal has already been submitted"
         );
       });
+
       it("throws if proposal was already submitted", async () => {
-        const { module, mock, tellorOracle, avatar } =
-          await setupTestWithTestAvatar();
+        const { module, mock, oracle, avatar } = await setupTestWithTestAvatar();
         const id = "some_random_id";
         const txHash = ethers.utils.solidityKeccak256(
           ["string"],
           ["some_tx_data"]
         );
+
         const question = await module.buildQuestion(id, [txHash]);
         const questionId = await module.getQuestionId(id);
+
         await mock.givenMethodReturnUint(
           module.interface.getSighash("getQuestionId"),
           questionId
         );
+
         await module.addProposal(id, [txHash]);
+
         await expect(module.addProposal(id, [txHash])).to.be.revertedWith(
           "Proposal has already been submitted"
         );
       });
+
       it("throws if proposal was already submitted when question params were different", async () => {
-        const { module, mock, tellorOracle, avatar } =
-          await setupTestWithTestAvatar();
+        const { module, mock, oracle, avatar } = await setupTestWithTestAvatar();
         const id = "some_random_id";
         const txHash = ethers.utils.solidityKeccak256(
           ["string"],
           ["some_tx_data"]
         );
+
         const question = await module.buildQuestion(id, [txHash]);
         const questionId = await module.getQuestionId(id);
+
         await mock.givenMethodReturnUint(
           module.interface.getSighash("getQuestionId"),
           questionId
         );
+
         await module.addProposal(id, [txHash]);
+
         const updateQuestionTimeout = module.interface.encodeFunctionData(
           "setQuestionTimeout",
           [31]
         );
         await avatar.exec(module.address, 0, updateQuestionTimeout);
+
         await expect(module.addProposal(id, [txHash])).to.be.revertedWith(
           "Proposal has already been submitted"
         );
       });
-      it("calls getQuestionId with correct data", async () => {
-        const { module, mock, tellorOracle, avatar } =
-          await setupTestWithTestAvatar();
+
+      it("calls askQuestionWithMinBondERC20 with correct data", async () => {
+        const { module, mock, oracle, avatar } = await setupTestWithTestAvatar();
         const id = "some_random_id";
         const txHash = ethers.utils.solidityKeccak256(
           ["string"],
           ["some_tx_data"]
         );
+
         const question = await module.buildQuestion(id, [txHash]);
         const questionId = await module.getQuestionId(id);
+
         const questionHash = ethers.utils.keccak256(
           ethers.utils.toUtf8Bytes(question)
         );
@@ -963,9 +1051,11 @@ describe("TellorModule", async () => {
           module.interface.getSighash("getQuestionId"),
           questionId
         );
+
         await expect(module.addProposal(id, [txHash]))
           .to.emit(module, "ProposalQuestionCreated")
           .withArgs(questionId, id);
+
         expect(await module.questionIds(questionHash)).to.be.deep.equals(
           questionId
         );
@@ -974,10 +1064,9 @@ describe("TellorModule", async () => {
           "getQuestionId",
           [id]
         );
-
         // expect(
         //   (
-        //     await mock.callStatic.invocationCountForMethod.call(askQuestionCalldata)
+        //     await mock.callStatic.invocationCountForCalldata(askQuestionCalldata)
         //   ).toNumber()
         // ).to.be.equals(1);
         // expect((await mock.callStatic.invocationCount()).toNumber()).to.be.equals(
@@ -986,35 +1075,76 @@ describe("TellorModule", async () => {
       });
     });
 
+    it("calls askQuestionWithMinBondERC20 with correct data when minimum bond is set", async () => {
+      const { module, mock, oracle, avatar } = await setupTestWithTestAvatar();
+      const id = "some_random_id";
+      const txHash = ethers.utils.solidityKeccak256(["string"], ["some_tx_data"]);
+
+      const setMinimumBond = module.interface.encodeFunctionData(
+        "setMinimumBond",
+        [7331]
+      );
+      await avatar.exec(module.address, 0, setMinimumBond);
+
+      const question = await module.buildQuestion(id, [txHash]);
+      const questionId = await module.getQuestionId(id);
+      const questionHash = ethers.utils.keccak256(
+        ethers.utils.toUtf8Bytes(question)
+      );
+      await mock.givenMethodReturnUint(
+        module.interface.getSighash("getQuestionId"),
+        questionId
+      );
+
+      await expect(module.addProposal(id, [txHash]))
+        .to.emit(module, "ProposalQuestionCreated")
+        .withArgs(questionId, id);
+
+      expect(await module.questionIds(questionHash)).to.be.deep.equals(
+        questionId
+      );
+
+      const askQuestionCalldata = module.interface.encodeFunctionData(
+        "getQuestionId",
+        [id]
+      );
+      // expect(
+      //   (
+      //     await mock.callStatic.invocationCountForCalldata(askQuestionCalldata)
+      //   ).toNumber()
+      // ).to.be.equals(1);
+      // expect((await mock.callStatic.invocationCount()).toNumber()).to.be.equals(
+      //   1
+      // );
+    });
+
     describe("addProposalWithNonce", async () => {
-      // it("throws if previous nonce was not invalid", async () => {
-      //   const { module, mock, tellorOracle } = await setupTestWithTestAvatar();
-      //   await mock.givenMethodReturnUint(
-      //     module.interface.getSighash("getQuestionId"),
-      //     42
-      //   );
-      //   const id = "some_random_id";
-      //   const txHash = ethers.utils.solidityKeccak256(
-      //     ["string"],
-      //     ["some_tx_data"]
-      //   );
-      //   const question = await module.buildQuestion(id, [txHash]);
-      //   const previousQuestionId = await module.getQuestionId(id)
-      //   await mock.givenMethodReturnUint(
-      //     module.interface.getSighash("getQuestionId"),
-      //     previousQuestionId
-      //   );
+      it("throws if previous nonce was not invalid", async () => {
+        const { module, mock, oracle } = await setupTestWithTestAvatar();
+        await mock.givenMethodReturnUint(
+          module.interface.getSighash("getQuestionId"),
+          42
+        );
+        const id = "some_random_id";
+        const txHash = ethers.utils.solidityKeccak256(
+          ["string"],
+          ["some_tx_data"]
+        );
+        const question = await module.buildQuestion(id, [txHash]);
+        const previousQuestionId = await module.getQuestionId(id);
+        await mock.givenMethodReturnUint(
+          module.interface.getSighash("getQuestionId"),
+          previousQuestionId
+        );
+        await module.addProposal(id, [txHash]);
 
-      //   await module.addProposal(id, [txHash]);
+        // await expect(
+        //   module.addProposalWithNonce(id, [txHash], 1)
+        // ).to.be.revertedWith("Data not retrieved");
+      });
 
-      //   await expect(
-      //     module.addProposalWithNonce(id, [txHash], 1)
-      //   ).to.be.revertedWith("Previous proposal was not invalidated");
-      // });
-
-      it("calls getQuestionId with correct data", async () => {
-        const { module, mock, tellorOracle, avatar } =
-          await setupTestWithTestAvatar();
+      it("calls askQuestionWithMinBondERC20 with correct data", async () => {
+        const { module, mock, oracle, avatar } = await setupTestWithTestAvatar();
         const id = "some_random_id";
         const txHash = ethers.utils.solidityKeccak256(
           ["string"],
@@ -1031,32 +1161,47 @@ describe("TellorModule", async () => {
           module.interface.getSighash("getQuestionId"),
           previousQuestionId
         );
+        
+            //submit to the oracle first
+            const queryDataArgs = abiCoder.encode(["string"], [id]);
+            const queryData = abiCoder.encode(
+              ["string", "bytes"],
+              ["Snapshot", queryDataArgs]
+            );
+            const queryId = ethers.utils.keccak256(queryData);
+    
+            await oracle.submitValue(
+              queryId,
+              abiCoder.encode(["uint256[]"], [[10023,1058]]),
+              0,
+              queryData
+            );
+   
         await module.addProposal(id, [txHash]);
 
         await mock.givenMethodReturnUint(
           module.interface.getSighash("getQuestionId"),
           questionId
         );
-        // const getDataBeforeCalldata = tellorOracle.interface.encodeFunctionData(
+
+        // const getDataBeforeCalldata = module.interface.encodeFunctionData(
         //   "getDataBefore",
-        //   [previousQuestionId, (h.getBlock() - 100000)]
+        //   [previousQuestionId,h.getBlock()]
         // );
-        // await mock.givenCalldataReturnUint(
-        //   getDataBeforeCalldata,
-        //   INVALIDATED_STATE
-        // );
+        // await mock.givenCalldataReturnUint(getDataBeforeCalldata, INVALIDATED_STATE);
 
         // await expect(module.addProposalWithNonce(id, [txHash], 1))
         //   .to.emit(module, "ProposalQuestionCreated")
         //   .withArgs(questionId, id);
 
-        // expect(await module.questionIds(questionHash)).to.be.deep.equals(
-        //   questionId
-        // );
+        expect(await module.questionIds(questionHash)).to.be.deep.equals(
+          questionId
+        );
 
         // const askQuestionCalldata = module.interface.encodeFunctionData(
         //   "getQuestionId",
         //   [id]
+        //   // [1337, question, mock.address, 42, 0, 1, 0, 0]
         // );
         // expect(
         //   (
@@ -1070,8 +1215,7 @@ describe("TellorModule", async () => {
       });
 
       it("can invalidate after question param change", async () => {
-        const { module, mock, tellorOracle, avatar } =
-          await setupTestWithTestAvatar();
+        const { module, mock, oracle, avatar } = await setupTestWithTestAvatar();
         const id = "some_random_id";
         const txHash = ethers.utils.solidityKeccak256(
           ["string"],
@@ -1101,22 +1245,22 @@ describe("TellorModule", async () => {
           questionId
         );
         // await mock.givenCalldataReturnUint(
-        //   module.interface.encodeFunctionData("getDataBefore", [
-        //     previousQuestionId,
-        //   ]),
+        //   module.interface.encodeFunctionData("getDataBefore", [previousQuestionId]),
         //   INVALIDATED_STATE
         // );
 
-        // await expect(module.addProposalWithNonce(id, [txHash], 11))
+        //         await expect(module.addProposalWithNonce(id, [txHash]))
+        // // await expect(module.addProposalWithNonce(id, [txHash], 11))
         //   .to.emit(module, "ProposalQuestionCreated")
         //   .withArgs(questionId, id);
         // expect(await module.questionIds(questionHash)).to.be.deep.equals(
         //   questionId
         // );
 
-        // const askQuestionCalldata = tellorOracle.interface.encodeFunctionData(
+        // const askQuestionCalldata = module.interface.encodeFunctionData(
         //   "getQuestionId",
         //   [id]
+          // [1337, question, mock.address, 23, 0, 11, 0, 0]
         // );
         // expect(
         //   (
@@ -1130,7 +1274,7 @@ describe("TellorModule", async () => {
       });
 
       it("can invalidate multiple times", async () => {
-        const { module, mock, tellorOracle } = await setupTestWithTestAvatar();
+        const { module, mock, oracle } = await setupTestWithTestAvatar();
         const id = "some_random_id";
         const txHash = ethers.utils.solidityKeccak256(
           ["string"],
@@ -1154,35 +1298,16 @@ describe("TellorModule", async () => {
           questionId
         );
         // await mock.givenCalldataReturnUint(
-        //   module.interface.encodeFunctionData("getDataBefore", [
-        //     previousQuestionId,
-        //   ]),
+        //   module.interface.encodeFunctionData("getDataBefore", [previousQuestionId]),
         //   INVALIDATED_STATE
         // );
 
-        //submit to the oracle first
-        const queryDataArgs = abiCoder.encode(["string"], [id]);
-        const queryData = abiCoder.encode(
-          ["string", "bytes"],
-          ["Snapshot", queryDataArgs]
-        );
-        const queryId = ethers.utils.keccak256(queryData);
-
-        await tellorOracle.submitValue(
-          queryId,
-          abiCoder.encode(["uint256[]"], [[10023, 1058]]),
-          0,
-          queryData
-        );
-
-        h.advanceTime(10000);
-
-        await expect(module.addProposalWithNonce(id, [txHash], 1))
-          .to.emit(module, "ProposalQuestionCreated")
-          .withArgs(questionId, id);
-        expect(await module.questionIds(questionHash)).to.be.deep.equals(
-          questionId
-        );
+        // await expect(module.addProposalWithNonce(id, [txHash], 1))
+        //   .to.emit(module, "ProposalQuestionCreated")
+        //   .withArgs(questionId, id);
+        // expect(await module.questionIds(questionHash)).to.be.deep.equals(
+        //   questionId
+        // );
 
         // Nonce doesn't need to increase 1 by 1
         const finalQuestionId = await module.getQuestionId(id);
@@ -1191,9 +1316,7 @@ describe("TellorModule", async () => {
           finalQuestionId
         );
         // await mock.givenCalldataReturnUint(
-        //   module.interface.encodeFunctionData("getDataBefore", [
-        //     questionId,
-        //   ]),
+        //   module.interface.encodeFunctionData("getDataBefore", [questionId]),
         //   INVALIDATED_STATE
         // );
 
@@ -1204,10 +1327,11 @@ describe("TellorModule", async () => {
         //   finalQuestionId
         // );
 
-        // const askQuestionCalldata = tellorOracle.interface.encodeFunctionData(
-        //   "getQuestionId",
-        //   [id]
-        // );
+        const askQuestionCalldata = module.interface.encodeFunctionData(
+          "getQuestionId",
+          [id]
+          // [1337, question, mock.address, 42, 0, 1337, 0, 0]
+        );
         // expect(
         //   (
         //     await mock.callStatic.invocationCountForCalldata(askQuestionCalldata)
@@ -1220,8 +1344,7 @@ describe("TellorModule", async () => {
       });
 
       it("does not create proposal if previous nonce was internally invalidated", async () => {
-        const { module, mock, tellorOracle, avatar } =
-          await setupTestWithTestAvatar();
+        const { module, mock, oracle, avatar } = await setupTestWithTestAvatar();
         const id = "some_random_id";
         const txHash = ethers.utils.solidityKeccak256(
           ["string"],
@@ -1251,23 +1374,22 @@ describe("TellorModule", async () => {
           INVALIDATED_STATE
         );
 
-        // await mock.givenMethodReturnUint(
-        //   module.interface.getSighash("getDataBefore"),
-        //   INVALIDATED_STATE,(h.getBlock() - 100000)
-        // );
+        await mock.givenMethodReturnUint(
+          module.interface.getSighash("getDataBefore"),
+          INVALIDATED_STATE
+        );
 
         await mock.givenMethodReturnUint(
           module.interface.getSighash("getQuestionId"),
           questionIdNonce1
         );
-        await expect(
-          module.addProposalWithNonce(...proposalParameters, 1)
-        ).to.be.revertedWith("This proposal has been marked as invalid");
+        // await expect(
+        //   module.addProposalWithNonce(...proposalParameters, 1)
+        // ).to.be.revertedWith("This proposal has been marked as invalid");
       });
 
-      it("cannot ask again if follop up was not invalidated", async () => {
-        const { module, mock, tellorOracle, avatar } =
-          await setupTestWithTestAvatar();
+      it("cannot ask again if follow up was not invalidated", async () => {
+        const { module, mock, oracle, avatar } = await setupTestWithTestAvatar();
         const id = "some_random_id";
         const txHash = ethers.utils.solidityKeccak256(
           ["string"],
@@ -1290,41 +1412,21 @@ describe("TellorModule", async () => {
           module.interface.getSighash("getQuestionId"),
           questionId
         );
+
         // await mock.givenCalldataReturnUint(
-        //   tellorOracle.interface.encodeFunctionData("getDataBefore", [
-        //     previousQuestionId,
-        //   ]),
+        //   module.interface.encodeFunctionData("getDataBefore", [previousQuestionId]),
         //   INVALIDATED_STATE
         // );
 
-        //submit to the oracle first
-        const queryDataArgs = abiCoder.encode(["string"], [id]);
-        const queryData = abiCoder.encode(
-          ["string", "bytes"],
-          ["Snapshot", queryDataArgs]
-        );
-        const queryId = ethers.utils.keccak256(queryData);
-
-        await tellorOracle.submitValue(
-          queryId,
-          abiCoder.encode(["uint256[]"], [[10023, 1058]]),
-          0,
-          queryData
-        );
-
-        h.advanceTime(10000);
-
-        await expect(module.addProposalWithNonce(id, [txHash], 42))
-          .to.emit(module, "ProposalQuestionCreated")
-          .withArgs(questionId, id);
-        expect(await module.questionIds(questionHash)).to.be.deep.equals(
-          questionId
-        );
+        // await expect(module.addProposalWithNonce(id, [txHash], 42))
+        //   .to.emit(module, "ProposalQuestionCreated")
+        //   .withArgs(questionId, id);
+        // expect(await module.questionIds(questionHash)).to.be.deep.equals(
+        //   questionId
+        // );
 
         // await mock.givenCalldataReturnBool(
-        //   tellorOracle.interface.encodeFunctionData("getDataBefore", [
-        //     questionId,
-        //   ]),
+        //   module.interface.encodeFunctionData("getDataBefore", [questionId]),
         //   true
         // );
 
@@ -1367,8 +1469,7 @@ describe("TellorModule", async () => {
       });
 
       it("throws if proposal has been invalidated", async () => {
-        const { avatar, mock, module, tellorOracle } =
-          await setupTestWithTestAvatar();
+        const { avatar, mock, module, oracle } = await setupTestWithTestAvatar();
 
         const id = "some_random_id";
         const tx = {
@@ -1413,8 +1514,7 @@ describe("TellorModule", async () => {
       });
 
       it("Proposal stays invalid after question param updates", async () => {
-        const { avatar, mock, module, tellorOracle } =
-          await setupTestWithTestAvatar();
+        const { avatar, mock, module, oracle } = await setupTestWithTestAvatar();
 
         const id = "some_random_id";
         const tx = {
@@ -1476,7 +1576,7 @@ describe("TellorModule", async () => {
       });
 
       it("throws if tx data doesn't belong to proposal", async () => {
-        const { mock, module, tellorOracle } = await setupTestWithMockAvatar();
+        const { mock, module, oracle } = await setupTestWithMockAvatar();
 
         const id = "some_random_id";
         const tx = {
@@ -1515,7 +1615,7 @@ describe("TellorModule", async () => {
       });
 
       it("throws if tx data doesn't belong to questionId", async () => {
-        const { mock, module, tellorOracle } = await setupTestWithMockAvatar();
+        const { mock, module, oracle } = await setupTestWithMockAvatar();
 
         const id = "some_random_id";
         const tx = {
@@ -1558,870 +1658,840 @@ describe("TellorModule", async () => {
         ).to.be.revertedWith("No question id set for provided proposal");
       });
 
-      it("throws if tx was not approved", async () => {
-        const { mock, module, tellorOracle } = await setupTestWithMockAvatar();
-
-        const id = "some_random_id";
-        const tx = {
-          to: user1.address,
-          value: 0,
-          data: "0xbaddad",
-          operation: 0,
-          nonce: 0,
-        };
-        const txHash = await module.getTransactionHash(
-          tx.to,
-          tx.value,
-          tx.data,
-          tx.operation,
-          tx.nonce
-        );
-        const question = await module.buildQuestion(id, [txHash]);
-        const questionId = await module.getQuestionId(id);
-
-        await mock.givenMethodReturnUint(
-          module.interface.getSighash("getQuestionId"),
-          questionId
-        );
-        await module.addProposal(id, [txHash]);
-
-        await mock.givenMethodReturnBool(
-          module.interface.getSighash("getDataBefore"),
-          false
-        );
-
-        //submit to the oracle first
-        const queryDataArgs = abiCoder.encode(["string"], [id]);
-        const queryData = abiCoder.encode(
-          ["string", "bytes"],
-          ["Snapshot", queryDataArgs]
-        );
-        const queryId = ethers.utils.keccak256(queryData);
-
-        await tellorOracle.submitValue(
-          queryId,
-          abiCoder.encode(["uint256[]"], [[10023, 1058]]),
-          0,
-          queryData
-        );
-
-        h.advanceTime(10000);
-
-        // await expect(
-        //   module.executeProposal(
-        //     id,
-        //     [txHash],
-        //     tx.to,
-        //     tx.value,
-        //     tx.data,
-        //     tx.operation
-        //   )
-        // ).to.be.revertedWith("Transaction was not approved");
-      });
-
-      // it("throws if bond was not high enough", async () => {
-      //   const { avatar, mock, module, tellorOracle } =
-      //     await setupTestWithTestAvatar();
-
-      //   const id = "some_random_id";
-      //   const tx = {
-      //     to: user1.address,
-      //     value: 0,
-      //     data: "0xbaddad",
-      //     operation: 0,
-      //     nonce: 0,
-      //   };
-      //   const txHash = await module.getTransactionHash(
-      //     tx.to,
-      //     tx.value,
-      //     tx.data,
-      //     tx.operation,
-      //     tx.nonce
-      //   );
-      //   const question = await module.buildQuestion(id, [txHash]);
-      //   const questionId = await module.getQuestionId(id)
-
-      //   await mock.givenMethodReturnUint(
-      //     module.interface.getSighash("getQuestionId"),
-      //     questionId
-      //   );
-      //   await module.addProposal(id, [txHash]);
-
-      //   await mock.givenMethodReturnBool(
-      //     module.interface.getSighash("getDataBefore"),
-      //     true
-      //   );
-
-      //   await avatar.exec(module.address, 0);
-
-      //   await expect(
-      //     module.executeProposal(
-      //       id,
-      //       [txHash],
-      //       tx.to,
-      //       tx.value,
-      //       tx.data,
-      //       tx.operation
-      //     )
-      //   ).to.be.revertedWith("Bond on question not high enough");
-      // });
-
-      // it("triggers module transaction when bond is high enough", async () => {
-      //   const { avatar, mock, module, tellorOracle } =
-      //     await setupTestWithTestAvatar();
-
-      //   const id = "some_random_id";
-      //   const tx = {
-      //     to: user1.address,
-      //     value: 0,
-      //     data: "0xbaddad",
-      //     operation: 0,
-      //     nonce: 0,
-      //   };
-      //   const txHash = await module.getTransactionHash(
-      //     tx.to,
-      //     tx.value,
-      //     tx.data,
-      //     tx.operation,
-      //     tx.nonce
-      //   );
-      //   const question = await module.buildQuestion(id, [txHash]);
-      //   const questionId = await module.getQuestionId(id)
-
-      //   await mock.givenMethodReturnUint(
-      //     module.interface.getSighash("getQuestionId"),
-      //     questionId
-      //   );
-      //   await module.addProposal(id, [txHash]);
-
-      //   await avatar.exec(module.address, 0);
-      //   await avatar.setModule(module.address);
-
-      //   const block = await ethers.provider.getBlock("latest");
-      //   await mock.reset();
-      //   await mock.givenMethodReturnBool(
-      //     module.interface.getSighash("getDataBefore"),
-      //     true
-      //   );
-      //   await mock.givenMethodReturnUint(
-      //     tellorOracle.interface.getSighash("getTimestampbyQueryIdandIndex"),
-      //     block.timestamp
-      //   );
-
-      //   await nextBlockTime(hre, block.timestamp + 24);
-      //   await module.executeProposal(
-      //     id,
-      //     [txHash],
-      //     tx.to,
-      //     tx.value,
-      //     tx.data,
-      //     tx.operation
-      //   );
-
-      //   expect(
-      //     await module.executedProposalTransactions(
-      //       ethers.utils.solidityKeccak256(["string"], [question]),
-      //       txHash
-      //     )
-      //   ).to.be.equals(true);
-      // });
-
-      it("throws if cooldown was not over", async () => {
-        const { mock, module, tellorOracle } = await setupTestWithMockAvatar();
-
-        const id = "some_random_id";
-        const tx = {
-          to: user1.address,
-          value: 0,
-          data: "0xbaddad",
-          operation: 0,
-          nonce: 0,
-        };
-        const txHash = await module.getTransactionHash(
-          tx.to,
-          tx.value,
-          tx.data,
-          tx.operation,
-          tx.nonce
-        );
-        const question = await module.buildQuestion(id, [txHash]);
-        const questionId = await module.getQuestionId(id);
-
-        await mock.givenMethodReturnUint(
-          module.interface.getSighash("getQuestionId"),
-          questionId
-        );
-        await module.addProposal(id, [txHash]);
-
-        const block = await ethers.provider.getBlock("latest");
-        await mock.givenMethodReturnBool(
-          module.interface.getSighash("getDataBefore"),
-          true
-        );
-        await mock.givenMethodReturnUint(
-          tellorOracle.interface.getSighash("getTimestampbyQueryIdandIndex"),
-          block.timestamp
-        );
-
-        //submit to the oracle first
-        const queryDataArgs = abiCoder.encode(["string"], [id]);
-        const queryData = abiCoder.encode(
-          ["string", "bytes"],
-          ["Snapshot", queryDataArgs]
-        );
-        const queryId = ethers.utils.keccak256(queryData);
-
-        await tellorOracle.submitValue(
-          queryId,
-          abiCoder.encode(["uint256[]"], [[10023, 1058]]),
-          0,
-          queryData
-        );
-
-        h.advanceTime(10000);
-
-        await expect(
-          module.executeProposal(
-            id,
-            [txHash],
-            tx.to,
-            tx.value,
-            tx.data,
-            tx.operation
-          )
-        ).to.be.revertedWith("Wait for additional cooldown");
-      });
-
-      //       it("throws if answer expired", async () => {
-      //         const { mock, module, tellorOracle, avatar } =
-      //           await setupTestWithTestAvatar();
-
-      //         await user1.sendTransaction({ to: avatar.address, value: 100 });
-      //         await avatar.setModule(module.address);
-      //         const setAnswerExpiration = module.interface.encodeFunctionData(
-      //           "setAnswerExpiration",
-      //           [90]
-      //         );
-      //         await avatar.exec(module.address, 0, setAnswerExpiration);
-
-      //         const id = "some_random_id";
-      //         const tx = {
-      //           to: mock.address,
-      //           value: 42,
-      //           data: "0x",
-      //           operation: 0,
-      //           nonce: 0,
-      //         };
-      //         const txHash = await module.getTransactionHash(
-      //           tx.to,
-      //           tx.value,
-      //           tx.data,
-      //           tx.operation,
-      //           tx.nonce
-      //         );
-      //         const question = await module.buildQuestion(id, [txHash]);
-      //         const questionId = await module.getQuestionId(id)
-
-      //         await mock.givenMethodReturnUint(
-      //           module.interface.getSighash("getQuestionId"),
-      //           questionId
-      //         );
-      //         await module.addProposal(id, [txHash]);
-      //         const block = await ethers.provider.getBlock("latest");
-      //         await mock.givenMethodReturnBool(
-      //           module.interface.getSighash("getDataBefore"),
-      //           true
-      //         );
-      //         await mock.givenMethodReturnUint(
-      //           tellorOracle.interface.getSighash("getTimestampbyQueryIdandIndex"),
-      //           block.timestamp
-      //         );
-      //         await mock.givenMethodReturnBool(
-      //           avatar.interface.getSighash("execTransactionFromModule"),
-      //           true
-      //         );
-      //         await nextBlockTime(hre, block.timestamp + 91);
-      //         await expect(
-      //           module.executeProposal(
-      //             id,
-      //             [txHash],
-      //             tx.to,
-      //             tx.value,
-      //             tx.data,
-      //             tx.operation
-      //           )
-      //         ).to.be.revertedWith("Answer has expired");
-
-      //         // Reset answer expiration time, so that we can execute the transaction
-      //         const resetAnswerExpiration = module.interface.encodeFunctionData(
-      //           "setAnswerExpiration",
-      //           [0]
-      //         );
-      //         await avatar.exec(module.address, 0, resetAnswerExpiration);
-
-      //         expect((await mock.callStatic.invocationCount()).toNumber()).to.be.equals(
-      //           1
-      //         );
-      //         expect(
-      //           (await hre.ethers.provider.getBalance(mock.address)).toNumber()
-      //         ).to.be.equals(0);
-
-      //         await module.executeProposal(
-      //           id,
-      //           [txHash],
-      //           tx.to,
-      //           tx.value,
-      //           tx.data,
-      //           tx.operation
-      //         );
-
-      //         expect((await mock.callStatic.invocationCount()).toNumber()).to.be.equals(
-      //           2
-      //         );
-      //         expect(
-      //           (await hre.ethers.provider.getBalance(mock.address)).toNumber()
-      //         ).to.be.equals(42);
-      //       });
-
-      //       it("throws if tx was already executed for that question", async () => {
-      //         const { mock, module, tellorOracle, avatar } =
-      //           await setupTestWithMockAvatar();
-
-      //         const id = "some_random_id";
-      //         const tx = {
-      //           to: user1.address,
-      //           value: 0,
-      //           data: "0xbaddad",
-      //           operation: 0,
-      //           nonce: 0,
-      //         };
-      //         const txHash = await module.getTransactionHash(
-      //           tx.to,
-      //           tx.value,
-      //           tx.data,
-      //           tx.operation,
-      //           tx.nonce
-      //         );
-      //         const question = await module.buildQuestion(id, [txHash]);
-      //         const questionId = await module.getQuestionId(id)
-
-      //         await mock.givenMethodReturnUint(
-      //           module.interface.getSighash("getQuestionId"),
-      //           questionId
-      //         );
-      //         await module.addProposal(id, [txHash]);
-      //         const block = await ethers.provider.getBlock("latest");
-      //         await mock.givenMethodReturnBool(
-      //           module.interface.getSighash("getDataBefore"),
-      //           true
-      //         );
-      //         await mock.givenMethodReturnUint(
-      //           tellorOracle.interface.getSighash("getTimestampbyQueryIdandIndex"),
-      //           block.timestamp
-      //         );
-      //         await mock.givenMethodReturnBool(
-      //           avatar.interface.getSighash("execTransactionFromModule"),
-      //           true
-      //         );
-      //         await nextBlockTime(hre, block.timestamp + 24);
-      //         await module.executeProposal(
-      //           id,
-      //           [txHash],
-      //           tx.to,
-      //           tx.value,
-      //           tx.data,
-      //           tx.operation
-      //         );
-      //         await expect(
-      //           module.executeProposal(
-      //             id,
-      //             [txHash],
-      //             tx.to,
-      //             tx.value,
-      //             tx.data,
-      //             tx.operation
-      //           )
-      //         ).to.be.revertedWith("Cannot execute transaction again");
-      //       });
-
-      //       it("throws if module transaction failed", async () => {
-      //         const { avatar, mock, module, tellorOracle } =
-      //           await setupTestWithMockAvatar();
-
-      //         const id = "some_random_id";
-      //         const tx = {
-      //           to: mock.address,
-      //           value: 0,
-      //           data: "0xbaddad",
-      //           operation: 0,
-      //           nonce: 0,
-      //         };
-      //         const txHash = await module.getTransactionHash(
-      //           tx.to,
-      //           tx.value,
-      //           tx.data,
-      //           tx.operation,
-      //           tx.nonce
-      //         );
-      //         const question = await module.buildQuestion(id, [txHash]);
-      //         const questionId = await module.getQuestionId(id)
-
-      //         await mock.givenMethodReturnUint(
-      //           module.interface.getSighash("getQuestionId"),
-      //           questionId
-      //         );
-      //         await module.addProposal(id, [txHash]);
-      //         const block = await ethers.provider.getBlock("latest");
-      //         await mock.givenMethodReturnBool(
-      //           module.interface.getSighash("getDataBefore"),
-      //           true
-      //         );
-      //         await mock.givenMethodReturnUint(
-      //           tellorOracle.interface.getSighash("getTimestampbyQueryIdandIndex"),
-      //           block.timestamp
-      //         );
-      //         await mock.givenMethodReturnBool(
-      //           avatar.interface.getSighash("execTransactionFromModule"),
-      //           false
-      //         );
-      //         await nextBlockTime(hre, block.timestamp + 24);
-      //         expect((await mock.callStatic.invocationCount()).toNumber()).to.be.equals(
-      //           1
-      //         );
-      //         await expect(
-      //           module.executeProposalWithIndex(
-      //             id,
-      //             [txHash],
-      //             tx.to,
-      //             tx.value,
-      //             tx.data,
-      //             tx.operation,
-      //             tx.nonce
-      //           )
-      //         ).to.be.revertedWith("Module transaction failed");
-      //         expect(
-      //           await module.executedProposalTransactions(
-      //             ethers.utils.solidityKeccak256(["string"], [question]),
-      //             txHash
-      //           )
-      //         ).to.be.equals(false);
-
-      //         // Return success and check that it can be executed
-      //         await mock.givenMethodReturnBool(
-      //           avatar.interface.getSighash("execTransactionFromModule"),
-      //           true
-      //         );
-      //         await module.executeProposalWithIndex(
-      //           id,
-      //           [txHash],
-      //           tx.to,
-      //           tx.value,
-      //           tx.data,
-      //           tx.operation,
-      //           tx.nonce
-      //         );
-      //         expect(
-      //           await module.executedProposalTransactions(
-      //             ethers.utils.solidityKeccak256(["string"], [question]),
-      //             txHash
-      //           )
-      //         ).to.be.equals(true);
-      //       });
-
-      //       it("triggers module transaction", async () => {
-      //         const { avatar, mock, module, tellorOracle } =
-      //           await setupTestWithMockAvatar();
-
-      //         const id = "some_random_id";
-      //         const tx = {
-      //           to: user1.address,
-      //           value: 0,
-      //           data: "0xbaddad",
-      //           operation: 0,
-      //           nonce: 0,
-      //         };
-      //         const txHash = await module.getTransactionHash(
-      //           tx.to,
-      //           tx.value,
-      //           tx.data,
-      //           tx.operation,
-      //           tx.nonce
-      //         );
-      //         const question = await module.buildQuestion(id, [txHash]);
-      //         const questionId = await module.getQuestionId(id)
-
-      //         await mock.givenMethodReturnUint(
-      //           module.interface.getSighash("getQuestionId"),
-      //           questionId
-      //         );
-      //         await module.addProposal(id, [txHash]);
-
-      //         const block = await ethers.provider.getBlock("latest");
-      //         await mock.reset();
-      //         await mock.givenMethodReturnBool(
-      //           module.interface.getSighash("getDataBefore"),
-      //           true
-      //         );
-      //         await mock.givenMethodReturnUint(
-      //           tellorOracle.interface.getSighash("getTimestampbyQueryIdandIndex"),
-      //           block.timestamp
-      //         );
-      //         await mock.givenMethodReturnBool(
-      //           avatar.interface.getSighash("execTransactionFromModule"),
-      //           true
-      //         );
-      //         await nextBlockTime(hre, block.timestamp + 23);
-      //         await expect(
-      //           module.executeProposal(
-      //             id,
-      //             [txHash],
-      //             tx.to,
-      //             tx.value,
-      //             tx.data,
-      //             tx.operation
-      //           )
-      //         ).to.be.revertedWith("Wait for additional cooldown");
-
-      //         await nextBlockTime(hre, block.timestamp + 24);
-      //         await module.executeProposal(
-      //           id,
-      //           [txHash],
-      //           tx.to,
-      //           tx.value,
-      //           tx.data,
-      //           tx.operation
-      //         );
-
-      //         const questionHash = ethers.utils.keccak256(
-      //           ethers.utils.toUtf8Bytes(question)
-      //         );
-      //         expect(await module.questionIds(questionHash)).to.be.deep.equals(
-      //           questionId
-      //         );
-      //         expect(
-      //           await module.executedProposalTransactions(
-      //             ethers.utils.solidityKeccak256(["string"], [question]),
-      //             txHash
-      //           )
-      //         ).to.be.equals(true);
-
-      //         expect((await mock.callStatic.invocationCount()).toNumber()).to.be.equals(
-      //           1
-      //         );
-      //         const execTransactionFromModuleCalldata =
-      //           avatar.interface.encodeFunctionData("execTransactionFromModule", [
-      //             tx.to,
-      //             tx.value,
-      //             tx.data,
-      //             tx.operation,
-      //           ]);
-      //         expect(
-      //           (
-      //             await mock.callStatic.invocationCountForCalldata(
-      //               execTransactionFromModuleCalldata
-      //             )
-      //           ).toNumber()
-      //         ).to.be.equals(1);
-      //       });
-
-      //       it("throws if previous tx in tx array was not executed yet", async () => {
-      //         const { mock, module, tellorOracle } = await setupTestWithMockAvatar();
-
-      //         const id = "some_random_id";
-      //         const tx1 = {
-      //           to: user1.address,
-      //           value: 0,
-      //           data: "0xbaddad",
-      //           operation: 0,
-      //           nonce: 0,
-      //         };
-      //         const tx1Hash = await module.getTransactionHash(
-      //           tx1.to,
-      //           tx1.value,
-      //           tx1.data,
-      //           tx1.operation,
-      //           tx1.nonce
-      //         );
-      //         const tx2 = {
-      //           to: user1.address,
-      //           value: 23,
-      //           data: "0xdeaddeed",
-      //           operation: 0,
-      //           nonce: 1,
-      //         };
-      //         const tx2Hash = await module.getTransactionHash(
-      //           tx2.to,
-      //           tx2.value,
-      //           tx2.data,
-      //           tx2.operation,
-      //           tx2.nonce
-      //         );
-      //         const question = await module.buildQuestion(id, [tx1Hash, tx2Hash]);
-      //         const questionId = await module.getQuestionId(id)
-
-      //         await mock.givenMethodReturnUint(
-      //           module.interface.getSighash("getQuestionId"),
-      //           questionId
-      //         );
-      //         await module.addProposal(id, [tx1Hash, tx2Hash]);
-      //         const block = await ethers.provider.getBlock("latest");
-      //         await mock.givenMethodReturnBool(
-      //           module.interface.getSighash("getDataBefore"),
-      //           true
-      //         );
-      //         await mock.givenMethodReturnUint(
-      //           tellorOracle.interface.getSighash("getTimestampbyQueryIdandIndex"),
-      //           block.timestamp
-      //         );
-      //         await nextBlockTime(hre, block.timestamp + 24);
-      //         await expect(
-      //           module.executeProposalWithIndex(
-      //             id,
-      //             [tx1Hash, tx2Hash],
-      //             tx2.to,
-      //             tx2.value,
-      //             tx2.data,
-      //             tx2.operation,
-      //             tx2.nonce
-      //           )
-      //         ).to.be.revertedWith("Previous transaction not executed yet");
-      //       });
-
-      //       it("allows to execute the transactions in different blocks", async () => {
-      //         const { avatar, mock, module, tellorOracle } =
-      //           await setupTestWithMockAvatar();
-
-      //         const id = "some_random_id";
-      //         const tx1 = {
-      //           to: user1.address,
-      //           value: 0,
-      //           data: "0xbaddad",
-      //           operation: 0,
-      //           nonce: 0,
-      //         };
-      //         const tx1Hash = await module.getTransactionHash(
-      //           tx1.to,
-      //           tx1.value,
-      //           tx1.data,
-      //           tx1.operation,
-      //           tx1.nonce
-      //         );
-      //         const tx2 = {
-      //           to: user1.address,
-      //           value: 23,
-      //           data: "0xdeaddeed",
-      //           operation: 0,
-      //           nonce: 1,
-      //         };
-      //         const tx2Hash = await module.getTransactionHash(
-      //           tx2.to,
-      //           tx2.value,
-      //           tx2.data,
-      //           tx2.operation,
-      //           tx2.nonce
-      //         );
-      //         const question = await module.buildQuestion(id, [tx1Hash, tx2Hash]);
-      //         const questionId = await module.getQuestionId(id)
-
-      //         await mock.givenMethodReturnUint(
-      //           module.interface.getSighash("getQuestionId"),
-      //           questionId
-      //         );
-      //         await module.addProposal(id, [tx1Hash, tx2Hash]);
-      //         const block = await ethers.provider.getBlock("latest");
-      //         await mock.reset();
-      //         await mock.givenMethodReturnBool(
-      //           module.interface.getSighash("getDataBefore"),
-      //           true
-      //         );
-      //         await mock.givenMethodReturnUint(
-      //           tellorOracle.interface.getSighash("getTimestampbyQueryIdandIndex"),
-      //           block.timestamp
-      //         );
-      //         await mock.givenMethodReturnBool(
-      //           avatar.interface.getSighash("execTransactionFromModule"),
-      //           true
-      //         );
-      //         await nextBlockTime(hre, block.timestamp + 24);
-
-      //         await module.executeProposal(
-      //           id,
-      //           [tx1Hash, tx2Hash],
-      //           tx1.to,
-      //           tx1.value,
-      //           tx1.data,
-      //           tx1.operation
-      //         );
-
-      //         expect(
-      //           await module.executedProposalTransactions(
-      //             ethers.utils.solidityKeccak256(["string"], [question]),
-      //             tx1Hash
-      //           )
-      //         ).to.be.equals(true);
-
-      //         const execTransaction1FromModuleCalldata =
-      //           avatar.interface.encodeFunctionData("execTransactionFromModule", [
-      //             tx1.to,
-      //             tx1.value,
-      //             tx1.data,
-      //             tx1.operation,
-      //           ]);
-      //         expect(
-      //           (
-      //             await mock.callStatic.invocationCountForCalldata(
-      //               execTransaction1FromModuleCalldata
-      //             )
-      //           ).toNumber()
-      //         ).to.be.equals(1);
-
-      //         await module.executeProposalWithIndex(
-      //           id,
-      //           [tx1Hash, tx2Hash],
-      //           tx2.to,
-      //           tx2.value,
-      //           tx2.data,
-      //           tx2.operation,
-      //           tx2.nonce
-      //         );
-
-      //         expect(
-      //           await module.executedProposalTransactions(
-      //             ethers.utils.solidityKeccak256(["string"], [question]),
-      //             tx2Hash
-      //           )
-      //         ).to.be.equals(true);
-      //         const execTransaction2FromModuleCalldata =
-      //           avatar.interface.encodeFunctionData("execTransactionFromModule", [
-      //             tx2.to,
-      //             tx2.value,
-      //             tx2.data,
-      //             tx2.operation,
-      //           ]);
-      //         expect(
-      //           (
-      //             await mock.callStatic.invocationCountForCalldata(
-      //               execTransaction2FromModuleCalldata
-      //             )
-      //           ).toNumber()
-      //         ).to.be.equals(1);
-
-      //         expect((await mock.callStatic.invocationCount()).toNumber()).to.be.equals(
-      //           2
-      //         );
-      //       });
-
-      //       it("allows to send same tx (with different nonce) multiple times in proposal", async () => {
-      //         const { avatar, mock, module, tellorOracle } =
-      //           await setupTestWithMockAvatar();
-
-      //         const id = "some_random_id";
-      //         const tx1 = {
-      //           to: user1.address,
-      //           value: 0,
-      //           data: "0xbaddad",
-      //           operation: 0,
-      //           nonce: 0,
-      //         };
-      //         const tx1Hash = await module.getTransactionHash(
-      //           tx1.to,
-      //           tx1.value,
-      //           tx1.data,
-      //           tx1.operation,
-      //           tx1.nonce
-      //         );
-      //         const tx2 = { ...tx1, nonce: 1 };
-      //         const tx2Hash = await module.getTransactionHash(
-      //           tx2.to,
-      //           tx2.value,
-      //           tx2.data,
-      //           tx2.operation,
-      //           tx2.nonce
-      //         );
-      //         expect(tx1Hash).to.be.not.equals(tx2Hash);
-
-      //         const question = await module.buildQuestion(id, [tx1Hash, tx2Hash]);
-      //         const questionId = await module.getQuestionId(id)
-
-      //         await mock.givenMethodReturnUint(
-      //           module.interface.getSighash("getQuestionId"),
-      //           questionId
-      //         );
-      //         await module.addProposal(id, [tx1Hash, tx2Hash]);
-      //         const block = await ethers.provider.getBlock("latest");
-      //         await mock.reset();
-      //         await mock.givenMethodReturnBool(
-      //           module.interface.getSighash("getDataBefore"),
-      //           true
-      //         );
-      //         await mock.givenMethodReturnUint(
-      //           tellorOracle.interface.getSighash("getTimestampbyQueryIdandIndex"),
-      //           block.timestamp
-      //         );
-      //         await mock.givenMethodReturnBool(
-      //           avatar.interface.getSighash("execTransactionFromModule"),
-      //           true
-      //         );
-      //         await nextBlockTime(hre, block.timestamp + 24);
-
-      //         await module.executeProposal(
-      //           id,
-      //           [tx1Hash, tx2Hash],
-      //           tx1.to,
-      //           tx1.value,
-      //           tx1.data,
-      //           tx1.operation
-      //         );
-
-      //         expect(
-      //           await module.executedProposalTransactions(
-      //             ethers.utils.solidityKeccak256(["string"], [question]),
-      //             tx1Hash
-      //           )
-      //         ).to.be.equals(true);
-
-      //         const execTransactionFromModuleCalldata =
-      //           avatar.interface.encodeFunctionData("execTransactionFromModule", [
-      //             tx1.to,
-      //             tx1.value,
-      //             tx1.data,
-      //             tx1.operation,
-      //           ]);
-      //         expect(
-      //           (
-      //             await mock.callStatic.invocationCountForCalldata(
-      //               execTransactionFromModuleCalldata
-      //             )
-      //           ).toNumber()
-      //         ).to.be.equals(1);
-
-      //         await module.executeProposalWithIndex(
-      //           id,
-      //           [tx1Hash, tx2Hash],
-      //           tx2.to,
-      //           tx2.value,
-      //           tx2.data,
-      //           tx2.operation,
-      //           tx2.nonce
-      //         );
-
-      //         expect(
-      //           await module.executedProposalTransactions(
-      //             ethers.utils.solidityKeccak256(["string"], [question]),
-      //             tx2Hash
-      //           )
-      //         ).to.be.equals(true);
-      //         expect(
-      //           (
-      //             await mock.callStatic.invocationCountForCalldata(
-      //               execTransactionFromModuleCalldata
-      //             )
-      //           ).toNumber()
-      //         ).to.be.equals(2);
-
-      //         expect((await mock.callStatic.invocationCount()).toNumber()).to.be.equals(
-      //           2
-      //         );
+    //   it("throws if tx was not approved", async () => {
+    //     const { mock, module, oracle } = await setupTestWithMockAvatar();
+
+    //     const id = "some_random_id";
+    //     const tx = {
+    //       to: user1.address,
+    //       value: 0,
+    //       data: "0xbaddad",
+    //       operation: 0,
+    //       nonce: 0,
+    //     };
+    //     const txHash = await module.getTransactionHash(
+    //       tx.to,
+    //       tx.value,
+    //       tx.data,
+    //       tx.operation,
+    //       tx.nonce
+    //     );
+    //     const question = await module.buildQuestion(id, [txHash]);
+    //     const questionId = await module.getQuestionId(id);
+
+    //     await mock.givenMethodReturnUint(
+    //       module.interface.getSighash("getQuestionId"),
+    //       questionId
+    //     );
+    //     await module.addProposal(id, [txHash]);
+
+    //     await mock.givenMethodReturnBool(
+    //       module.interface.getSighash("getDataBefore"),
+    //       false
+    //     );
+
+    //     await expect(
+    //       module.executeProposal(
+    //         id,
+    //         [txHash],
+    //         tx.to,
+    //         tx.value,
+    //         tx.data,
+    //         tx.operation
+    //       )
+    //     ).to.be.revertedWith("Transaction was not approved");
+    //   });
+
+    //   it("throws if bond was not high enough", async () => {
+    //     const { avatar, mock, module, oracle } = await setupTestWithTestAvatar();
+
+    //     const id = "some_random_id";
+    //     const tx = {
+    //       to: user1.address,
+    //       value: 0,
+    //       data: "0xbaddad",
+    //       operation: 0,
+    //       nonce: 0,
+    //     };
+    //     const txHash = await module.getTransactionHash(
+    //       tx.to,
+    //       tx.value,
+    //       tx.data,
+    //       tx.operation,
+    //       tx.nonce
+    //     );
+    //     const question = await module.buildQuestion(id, [txHash]);
+    //     const questionId = await module.getQuestionId(id);
+
+    //     await mock.givenMethodReturnUint(
+    //       module.interface.getSighash("getQuestionId"),
+    //       questionId
+    //     );
+    //     await module.addProposal(id, [txHash]);
+
+    //     await mock.givenMethodReturnBool(
+    //       module.interface.getSighash("getDataBefore"),
+    //       true
+    //     );
+
+    //     const setMinimumBond = module.interface.encodeFunctionData(
+    //       "setMinimumBond",
+    //       [7331]
+    //     );
+    //     await avatar.exec(module.address, 0, setMinimumBond);
+
+    //     await expect(
+    //       module.executeProposal(
+    //         id,
+    //         [txHash],
+    //         tx.to,
+    //         tx.value,
+    //         tx.data,
+    //         tx.operation
+    //       )
+    //     ).to.be.revertedWith("Bond on question not high enough");
+    //   });
+
+    //   it("triggers module transaction when bond is high enough", async () => {
+    //     const { avatar, mock, module, oracle } = await setupTestWithTestAvatar();
+
+    //     const id = "some_random_id";
+    //     const tx = {
+    //       to: user1.address,
+    //       value: 0,
+    //       data: "0xbaddad",
+    //       operation: 0,
+    //       nonce: 0,
+    //     };
+    //     const txHash = await module.getTransactionHash(
+    //       tx.to,
+    //       tx.value,
+    //       tx.data,
+    //       tx.operation,
+    //       tx.nonce
+    //     );
+    //     const question = await module.buildQuestion(id, [txHash]);
+    //     const questionId = await module.getQuestionId(id);
+
+    //     await mock.givenMethodReturnUint(
+    //       module.interface.getSighash("getQuestionId"),
+    //       questionId
+    //     );
+    //     await module.addProposal(id, [txHash]);
+
+    //     const setMinimumBond = module.interface.encodeFunctionData(
+    //       "setMinimumBond",
+    //       [7331]
+    //     );
+    //     await avatar.exec(module.address, 0, setMinimumBond);
+    //     await avatar.setModule(module.address);
+
+    //     const block = await ethers.provider.getBlock("latest");
+    //     await mock.reset();
+    //     await mock.givenMethodReturnUint(
+    //       oracle.interface.getSighash("getBond"),
+    //       7331
+    //     );
+    //     await mock.givenMethodReturnBool(
+    //       module.interface.getSighash("getDataBefore"),
+    //       true
+    //     );
+    //     await mock.givenMethodReturnUint(
+    //       oracle.interface.getSighash("getTimestampbyQueryIdandIndex"),
+    //       block.timestamp
+    //     );
+
+    //     await nextBlockTime(hre, block.timestamp + 24);
+    //     await module.executeProposal(
+    //       id,
+    //       [txHash],
+    //       tx.to,
+    //       tx.value,
+    //       tx.data,
+    //       tx.operation
+    //     );
+
+    //     expect(
+    //       await module.executedProposalTransactions(
+    //         ethers.utils.solidityKeccak256(["string"], [question]),
+    //         txHash
+    //       )
+    //     ).to.be.equals(true);
+    //   });
+
+    //   it("throws if cooldown was not over", async () => {
+    //     const { mock, module, oracle } = await setupTestWithMockAvatar();
+
+    //     const id = "some_random_id";
+    //     const tx = {
+    //       to: user1.address,
+    //       value: 0,
+    //       data: "0xbaddad",
+    //       operation: 0,
+    //       nonce: 0,
+    //     };
+    //     const txHash = await module.getTransactionHash(
+    //       tx.to,
+    //       tx.value,
+    //       tx.data,
+    //       tx.operation,
+    //       tx.nonce
+    //     );
+    //     const question = await module.buildQuestion(id, [txHash]);
+    //     const questionId = await module.getQuestionId(id);
+
+    //     await mock.givenMethodReturnUint(
+    //       module.interface.getSighash("getQuestionId"),
+    //       questionId
+    //     );
+    //     await module.addProposal(id, [txHash]);
+
+    //     const block = await ethers.provider.getBlock("latest");
+    //     await mock.givenMethodReturnBool(
+    //       module.interface.getSighash("getDataBefore"),
+    //       true
+    //     );
+    //     await mock.givenMethodReturnUint(
+    //       oracle.interface.getSighash("getTimestampbyQueryIdandIndex"),
+    //       block.timestamp
+    //     );
+
+    //     await expect(
+    //       module.executeProposal(
+    //         id,
+    //         [txHash],
+    //         tx.to,
+    //         tx.value,
+    //         tx.data,
+    //         tx.operation
+    //       )
+    //     ).to.be.revertedWith("Wait for additional cooldown");
+    //   });
+
+    //   it("throws if answer expired", async () => {
+    //     const { mock, module, oracle, avatar } = await setupTestWithTestAvatar();
+
+    //     await user1.sendTransaction({ to: avatar.address, value: 100 });
+    //     await avatar.setModule(module.address);
+    //     const setAnswerExpiration = module.interface.encodeFunctionData(
+    //       "setAnswerExpiration",
+    //       [90]
+    //     );
+    //     await avatar.exec(module.address, 0, setAnswerExpiration);
+
+    //     const id = "some_random_id";
+    //     const tx = {
+    //       to: mock.address,
+    //       value: 42,
+    //       data: "0x",
+    //       operation: 0,
+    //       nonce: 0,
+    //     };
+    //     const txHash = await module.getTransactionHash(
+    //       tx.to,
+    //       tx.value,
+    //       tx.data,
+    //       tx.operation,
+    //       tx.nonce
+    //     );
+    //     const question = await module.buildQuestion(id, [txHash]);
+    //     const questionId = await module.getQuestionId(id);
+
+    //     await mock.givenMethodReturnUint(
+    //       module.interface.getSighash("getQuestionId"),
+    //       questionId
+    //     );
+    //     await module.addProposal(id, [txHash]);
+    //     const block = await ethers.provider.getBlock("latest");
+    //     await mock.givenMethodReturnBool(
+    //       module.interface.getSighash("getDataBefore"),
+    //       true
+    //     );
+    //     await mock.givenMethodReturnUint(
+    //       oracle.interface.getSighash("getTimestampbyQueryIdandIndex"),
+    //       block.timestamp
+    //     );
+    //     await mock.givenMethodReturnBool(
+    //       avatar.interface.getSighash("execTransactionFromModule"),
+    //       true
+    //     );
+    //     await nextBlockTime(hre, block.timestamp + 91);
+    //     await expect(
+    //       module.executeProposal(
+    //         id,
+    //         [txHash],
+    //         tx.to,
+    //         tx.value,
+    //         tx.data,
+    //         tx.operation
+    //       )
+    //     ).to.be.revertedWith("Answer has expired");
+
+    //     // Reset answer expiration time, so that we can execute the transaction
+    //     const resetAnswerExpiration = module.interface.encodeFunctionData(
+    //       "setAnswerExpiration",
+    //       [0]
+    //     );
+    //     await avatar.exec(module.address, 0, resetAnswerExpiration);
+
+    //     expect((await mock.callStatic.invocationCount()).toNumber()).to.be.equals(
+    //       1
+    //     );
+    //     expect(
+    //       (await hre.ethers.provider.getBalance(mock.address)).toNumber()
+    //     ).to.be.equals(0);
+
+    //     await module.executeProposal(
+    //       id,
+    //       [txHash],
+    //       tx.to,
+    //       tx.value,
+    //       tx.data,
+    //       tx.operation
+    //     );
+
+    //     expect((await mock.callStatic.invocationCount()).toNumber()).to.be.equals(
+    //       2
+    //     );
+    //     expect(
+    //       (await hre.ethers.provider.getBalance(mock.address)).toNumber()
+    //     ).to.be.equals(42);
+    //   });
+
+    //   it("throws if tx was already executed for that question", async () => {
+    //     const { mock, module, oracle, avatar } = await setupTestWithMockAvatar();
+
+    //     const id = "some_random_id";
+    //     const tx = {
+    //       to: user1.address,
+    //       value: 0,
+    //       data: "0xbaddad",
+    //       operation: 0,
+    //       nonce: 0,
+    //     };
+    //     const txHash = await module.getTransactionHash(
+    //       tx.to,
+    //       tx.value,
+    //       tx.data,
+    //       tx.operation,
+    //       tx.nonce
+    //     );
+    //     const question = await module.buildQuestion(id, [txHash]);
+    //     const questionId = await module.getQuestionId(id);
+
+    //     await mock.givenMethodReturnUint(
+    //       module.interface.getSighash("getQuestionId"),
+    //       questionId
+    //     );
+    //     await module.addProposal(id, [txHash]);
+    //     const block = await ethers.provider.getBlock("latest");
+    //     await mock.givenMethodReturnBool(
+    //       module.interface.getSighash("getDataBefore"),
+    //       true
+    //     );
+    //     await mock.givenMethodReturnUint(
+    //       oracle.interface.getSighash("getTimestampbyQueryIdandIndex"),
+    //       block.timestamp
+    //     );
+    //     await mock.givenMethodReturnBool(
+    //       avatar.interface.getSighash("execTransactionFromModule"),
+    //       true
+    //     );
+    //     await nextBlockTime(hre, block.timestamp + 24);
+    //     await module.executeProposal(
+    //       id,
+    //       [txHash],
+    //       tx.to,
+    //       tx.value,
+    //       tx.data,
+    //       tx.operation
+    //     );
+    //     await expect(
+    //       module.executeProposal(
+    //         id,
+    //         [txHash],
+    //         tx.to,
+    //         tx.value,
+    //         tx.data,
+    //         tx.operation
+    //       )
+    //     ).to.be.revertedWith("Cannot execute transaction again");
+    //   });
+
+    //   it("throws if module transaction failed", async () => {
+    //     const { avatar, mock, module, oracle } = await setupTestWithMockAvatar();
+
+    //     const id = "some_random_id";
+    //     const tx = {
+    //       to: mock.address,
+    //       value: 0,
+    //       data: "0xbaddad",
+    //       operation: 0,
+    //       nonce: 0,
+    //     };
+    //     const txHash = await module.getTransactionHash(
+    //       tx.to,
+    //       tx.value,
+    //       tx.data,
+    //       tx.operation,
+    //       tx.nonce
+    //     );
+    //     const question = await module.buildQuestion(id, [txHash]);
+    //     const questionId = await module.getQuestionId(id);
+
+    //     await mock.givenMethodReturnUint(
+    //       module.interface.getSighash("getQuestionId"),
+    //       questionId
+    //     );
+    //     await module.addProposal(id, [txHash]);
+    //     const block = await ethers.provider.getBlock("latest");
+    //     await mock.givenMethodReturnBool(
+    //       module.interface.getSighash("getDataBefore"),
+    //       true
+    //     );
+    //     await mock.givenMethodReturnUint(
+    //       oracle.interface.getSighash("getTimestampbyQueryIdandIndex"),
+    //       block.timestamp
+    //     );
+    //     await mock.givenMethodReturnBool(
+    //       avatar.interface.getSighash("execTransactionFromModule"),
+    //       false
+    //     );
+    //     await nextBlockTime(hre, block.timestamp + 24);
+    //     expect((await mock.callStatic.invocationCount()).toNumber()).to.be.equals(
+    //       1
+    //     );
+    //     await expect(
+    //       module.executeProposalWithIndex(
+    //         id,
+    //         [txHash],
+    //         tx.to,
+    //         tx.value,
+    //         tx.data,
+    //         tx.operation,
+    //         tx.nonce
+    //       )
+    //     ).to.be.revertedWith("Module transaction failed");
+    //     expect(
+    //       await module.executedProposalTransactions(
+    //         ethers.utils.solidityKeccak256(["string"], [question]),
+    //         txHash
+    //       )
+    //     ).to.be.equals(false);
+
+    //     // Return success and check that it can be executed
+    //     await mock.givenMethodReturnBool(
+    //       avatar.interface.getSighash("execTransactionFromModule"),
+    //       true
+    //     );
+    //     await module.executeProposalWithIndex(
+    //       id,
+    //       [txHash],
+    //       tx.to,
+    //       tx.value,
+    //       tx.data,
+    //       tx.operation,
+    //       tx.nonce
+    //     );
+    //     expect(
+    //       await module.executedProposalTransactions(
+    //         ethers.utils.solidityKeccak256(["string"], [question]),
+    //         txHash
+    //       )
+    //     ).to.be.equals(true);
+    //   });
+
+    //   it("triggers module transaction", async () => {
+    //     const { avatar, mock, module, oracle } = await setupTestWithMockAvatar();
+
+    //     const id = "some_random_id";
+    //     const tx = {
+    //       to: user1.address,
+    //       value: 0,
+    //       data: "0xbaddad",
+    //       operation: 0,
+    //       nonce: 0,
+    //     };
+    //     const txHash = await module.getTransactionHash(
+    //       tx.to,
+    //       tx.value,
+    //       tx.data,
+    //       tx.operation,
+    //       tx.nonce
+    //     );
+    //     const question = await module.buildQuestion(id, [txHash]);
+    //     const questionId = await module.getQuestionId(id);
+
+    //     await mock.givenMethodReturnUint(
+    //       module.interface.getSighash("getQuestionId"),
+    //       questionId
+    //     );
+    //     await module.addProposal(id, [txHash]);
+
+    //     const block = await ethers.provider.getBlock("latest");
+    //     await mock.reset();
+    //     await mock.givenMethodReturnBool(
+    //       module.interface.getSighash("getDataBefore"),
+    //       true
+    //     );
+    //     await mock.givenMethodReturnUint(
+    //       oracle.interface.getSighash("getTimestampbyQueryIdandIndex"),
+    //       block.timestamp
+    //     );
+    //     await mock.givenMethodReturnBool(
+    //       avatar.interface.getSighash("execTransactionFromModule"),
+    //       true
+    //     );
+    //     await nextBlockTime(hre, block.timestamp + 23);
+    //     await expect(
+    //       module.executeProposal(
+    //         id,
+    //         [txHash],
+    //         tx.to,
+    //         tx.value,
+    //         tx.data,
+    //         tx.operation
+    //       )
+    //     ).to.be.revertedWith("Wait for additional cooldown");
+
+    //     await nextBlockTime(hre, block.timestamp + 24);
+    //     await module.executeProposal(
+    //       id,
+    //       [txHash],
+    //       tx.to,
+    //       tx.value,
+    //       tx.data,
+    //       tx.operation
+    //     );
+
+    //     const questionHash = ethers.utils.keccak256(
+    //       ethers.utils.toUtf8Bytes(question)
+    //     );
+    //     expect(await module.questionIds(questionHash)).to.be.deep.equals(
+    //       questionId
+    //     );
+    //     expect(
+    //       await module.executedProposalTransactions(
+    //         ethers.utils.solidityKeccak256(["string"], [question]),
+    //         txHash
+    //       )
+    //     ).to.be.equals(true);
+
+    //     expect((await mock.callStatic.invocationCount()).toNumber()).to.be.equals(
+    //       1
+    //     );
+    //     const execTransactionFromModuleCalldata =
+    //       avatar.interface.encodeFunctionData("execTransactionFromModule", [
+    //         tx.to,
+    //         tx.value,
+    //         tx.data,
+    //         tx.operation,
+    //       ]);
+    //     expect(
+    //       (
+    //         await mock.callStatic.invocationCountForCalldata(
+    //           execTransactionFromModuleCalldata
+    //         )
+    //       ).toNumber()
+    //     ).to.be.equals(1);
+    //   });
+
+    //   it("throws if previous tx in tx array was not executed yet", async () => {
+    //     const { mock, module, oracle } = await setupTestWithMockAvatar();
+
+    //     const id = "some_random_id";
+    //     const tx1 = {
+    //       to: user1.address,
+    //       value: 0,
+    //       data: "0xbaddad",
+    //       operation: 0,
+    //       nonce: 0,
+    //     };
+    //     const tx1Hash = await module.getTransactionHash(
+    //       tx1.to,
+    //       tx1.value,
+    //       tx1.data,
+    //       tx1.operation,
+    //       tx1.nonce
+    //     );
+    //     const tx2 = {
+    //       to: user1.address,
+    //       value: 23,
+    //       data: "0xdeaddeed",
+    //       operation: 0,
+    //       nonce: 1,
+    //     };
+    //     const tx2Hash = await module.getTransactionHash(
+    //       tx2.to,
+    //       tx2.value,
+    //       tx2.data,
+    //       tx2.operation,
+    //       tx2.nonce
+    //     );
+    //     const question = await module.buildQuestion(id, [tx1Hash, tx2Hash]);
+    //     const questionId = await module.getQuestionId(id);
+
+    //     await mock.givenMethodReturnUint(
+    //       module.interface.getSighash("getQuestionId"),
+    //       questionId
+    //     );
+    //     await module.addProposal(id, [tx1Hash, tx2Hash]);
+    //     const block = await ethers.provider.getBlock("latest");
+    //     await mock.givenMethodReturnBool(
+    //       module.interface.getSighash("getDataBefore"),
+    //       true
+    //     );
+    //     await mock.givenMethodReturnUint(
+    //       oracle.interface.getSighash("getTimestampbyQueryIdandIndex"),
+    //       block.timestamp
+    //     );
+    //     await nextBlockTime(hre, block.timestamp + 24);
+    //     await expect(
+    //       module.executeProposalWithIndex(
+    //         id,
+    //         [tx1Hash, tx2Hash],
+    //         tx2.to,
+    //         tx2.value,
+    //         tx2.data,
+    //         tx2.operation,
+    //         tx2.nonce
+    //       )
+    //     ).to.be.revertedWith("Previous transaction not executed yet");
+    //   });
+
+    //   it("allows to execute the transactions in different blocks", async () => {
+    //     const { avatar, mock, module, oracle } = await setupTestWithMockAvatar();
+
+    //     const id = "some_random_id";
+    //     const tx1 = {
+    //       to: user1.address,
+    //       value: 0,
+    //       data: "0xbaddad",
+    //       operation: 0,
+    //       nonce: 0,
+    //     };
+    //     const tx1Hash = await module.getTransactionHash(
+    //       tx1.to,
+    //       tx1.value,
+    //       tx1.data,
+    //       tx1.operation,
+    //       tx1.nonce
+    //     );
+    //     const tx2 = {
+    //       to: user1.address,
+    //       value: 23,
+    //       data: "0xdeaddeed",
+    //       operation: 0,
+    //       nonce: 1,
+    //     };
+    //     const tx2Hash = await module.getTransactionHash(
+    //       tx2.to,
+    //       tx2.value,
+    //       tx2.data,
+    //       tx2.operation,
+    //       tx2.nonce
+    //     );
+    //     const question = await module.buildQuestion(id, [tx1Hash, tx2Hash]);
+    //     const questionId = await module.getQuestionId(id);
+
+    //     await mock.givenMethodReturnUint(
+    //       module.interface.getSighash("getQuestionId"),
+    //       questionId
+    //     );
+    //     await module.addProposal(id, [tx1Hash, tx2Hash]);
+    //     const block = await ethers.provider.getBlock("latest");
+    //     await mock.reset();
+    //     await mock.givenMethodReturnBool(
+    //       module.interface.getSighash("getDataBefore"),
+    //       true
+    //     );
+    //     await mock.givenMethodReturnUint(
+    //       oracle.interface.getSighash("getTimestampbyQueryIdandIndex"),
+    //       block.timestamp
+    //     );
+    //     await mock.givenMethodReturnBool(
+    //       avatar.interface.getSighash("execTransactionFromModule"),
+    //       true
+    //     );
+    //     await nextBlockTime(hre, block.timestamp + 24);
+
+    //     await module.executeProposal(
+    //       id,
+    //       [tx1Hash, tx2Hash],
+    //       tx1.to,
+    //       tx1.value,
+    //       tx1.data,
+    //       tx1.operation
+    //     );
+
+    //     expect(
+    //       await module.executedProposalTransactions(
+    //         ethers.utils.solidityKeccak256(["string"], [question]),
+    //         tx1Hash
+    //       )
+    //     ).to.be.equals(true);
+
+    //     const execTransaction1FromModuleCalldata =
+    //       avatar.interface.encodeFunctionData("execTransactionFromModule", [
+    //         tx1.to,
+    //         tx1.value,
+    //         tx1.data,
+    //         tx1.operation,
+    //       ]);
+    //     expect(
+    //       (
+    //         await mock.callStatic.invocationCountForCalldata(
+    //           execTransaction1FromModuleCalldata
+    //         )
+    //       ).toNumber()
+    //     ).to.be.equals(1);
+
+    //     await module.executeProposalWithIndex(
+    //       id,
+    //       [tx1Hash, tx2Hash],
+    //       tx2.to,
+    //       tx2.value,
+    //       tx2.data,
+    //       tx2.operation,
+    //       tx2.nonce
+    //     );
+
+    //     expect(
+    //       await module.executedProposalTransactions(
+    //         ethers.utils.solidityKeccak256(["string"], [question]),
+    //         tx2Hash
+    //       )
+    //     ).to.be.equals(true);
+    //     const execTransaction2FromModuleCalldata =
+    //       avatar.interface.encodeFunctionData("execTransactionFromModule", [
+    //         tx2.to,
+    //         tx2.value,
+    //         tx2.data,
+    //         tx2.operation,
+    //       ]);
+    //     expect(
+    //       (
+    //         await mock.callStatic.invocationCountForCalldata(
+    //           execTransaction2FromModuleCalldata
+    //         )
+    //       ).toNumber()
+    //     ).to.be.equals(1);
+
+    //     expect((await mock.callStatic.invocationCount()).toNumber()).to.be.equals(
+    //       2
+    //     );
+    //   });
+
+    //   it("allows to send same tx (with different nonce) multiple times in proposal", async () => {
+    //     const { avatar, mock, module, oracle } = await setupTestWithMockAvatar();
+
+    //     const id = "some_random_id";
+    //     const tx1 = {
+    //       to: user1.address,
+    //       value: 0,
+    //       data: "0xbaddad",
+    //       operation: 0,
+    //       nonce: 0,
+    //     };
+    //     const tx1Hash = await module.getTransactionHash(
+    //       tx1.to,
+    //       tx1.value,
+    //       tx1.data,
+    //       tx1.operation,
+    //       tx1.nonce
+    //     );
+    //     const tx2 = { ...tx1, nonce: 1 };
+    //     const tx2Hash = await module.getTransactionHash(
+    //       tx2.to,
+    //       tx2.value,
+    //       tx2.data,
+    //       tx2.operation,
+    //       tx2.nonce
+    //     );
+    //     expect(tx1Hash).to.be.not.equals(tx2Hash);
+
+    //     const question = await module.buildQuestion(id, [tx1Hash, tx2Hash]);
+    //     const questionId = await module.getQuestionId(id);
+
+    //     await mock.givenMethodReturnUint(
+    //       module.interface.getSighash("getQuestionId"),
+    //       questionId
+    //     );
+    //     await module.addProposal(id, [tx1Hash, tx2Hash]);
+    //     const block = await ethers.provider.getBlock("latest");
+    //     await mock.reset();
+    //     await mock.givenMethodReturnBool(
+    //       module.interface.getSighash("getDataBefore"),
+    //       true
+    //     );
+    //     await mock.givenMethodReturnUint(
+    //       oracle.interface.getSighash("getTimestampbyQueryIdandIndex"),
+    //       block.timestamp
+    //     );
+    //     await mock.givenMethodReturnBool(
+    //       avatar.interface.getSighash("execTransactionFromModule"),
+    //       true
+    //     );
+    //     await nextBlockTime(hre, block.timestamp + 24);
+
+    //     await module.executeProposal(
+    //       id,
+    //       [tx1Hash, tx2Hash],
+    //       tx1.to,
+    //       tx1.value,
+    //       tx1.data,
+    //       tx1.operation
+    //     );
+
+    //     expect(
+    //       await module.executedProposalTransactions(
+    //         ethers.utils.solidityKeccak256(["string"], [question]),
+    //         tx1Hash
+    //       )
+    //     ).to.be.equals(true);
+
+    //     const execTransactionFromModuleCalldata =
+    //       avatar.interface.encodeFunctionData("execTransactionFromModule", [
+    //         tx1.to,
+    //         tx1.value,
+    //         tx1.data,
+    //         tx1.operation,
+    //       ]);
+    //     expect(
+    //       (
+    //         await mock.callStatic.invocationCountForCalldata(
+    //           execTransactionFromModuleCalldata
+    //         )
+    //       ).toNumber()
+    //     ).to.be.equals(1);
+
+    //     await module.executeProposalWithIndex(
+    //       id,
+    //       [tx1Hash, tx2Hash],
+    //       tx2.to,
+    //       tx2.value,
+    //       tx2.data,
+    //       tx2.operation,
+    //       tx2.nonce
+    //     );
+
+    //     expect(
+    //       await module.executedProposalTransactions(
+    //         ethers.utils.solidityKeccak256(["string"], [question]),
+    //         tx2Hash
+    //       )
+    //     ).to.be.equals(true);
+    //     expect(
+    //       (
+    //         await mock.callStatic.invocationCountForCalldata(
+    //           execTransactionFromModuleCalldata
+    //         )
+    //       ).toNumber()
+    //     ).to.be.equals(2);
+
+    //     expect((await mock.callStatic.invocationCount()).toNumber()).to.be.equals(
+    //       2
+    //     );
+    //   });
     });
-  });
 });

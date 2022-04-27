@@ -7,15 +7,22 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const { deployments, getNamedAccounts } = hre;
   const { deployer } = await getNamedAccounts();
   const { deploy } = deployments;
-  const args = [FIRST_ADDRESS,FIRST_ADDRESS, FIRST_ADDRESS, FIRST_ADDRESS, 1, 0, 60, 0, FIRST_ADDRESS];
+  const args = [FIRST_ADDRESS, FIRST_ADDRESS, FIRST_ADDRESS, FIRST_ADDRESS, 1, 0, 60, 0, 0, FIRST_ADDRESS];
 
-  await deploy("TellorModule", {
+  await deploy("RealityModule", {
     from: deployer,
     args,
     log: true,
     deterministicDeployment: true,
   });
+
+  // await deploy("RealityModuleETH", {
+  //   from: deployer,
+  //   args,
+  //   log: true,
+  //   deterministicDeployment: true,
+  // });
 };
 
-deploy.tags = ["zodiac-module-tellor"];
+deploy.tags = ["zodiac-module-reality"];
 export default deploy;

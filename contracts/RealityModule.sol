@@ -2,9 +2,10 @@
 pragma solidity >=0.8.0;
 
 import "@gnosis.pm/zodiac/contracts/core/Module.sol";
+import "./interfaces/RealitioV3.sol";
 import "usingtellor/contracts/UsingTellor.sol";
 
-contract TellorModule is Module, UsingTellor {
+contract RealityModule is Module, UsingTellor {
     bytes32 public constant INVALIDATED =
         0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
 
@@ -25,18 +26,20 @@ contract TellorModule is Module, UsingTellor {
         string indexed proposalId
     );
 
-    event TellorModuleSetup(
+    event RealityModuleSetup(
         address indexed initiator,
         address indexed owner,
         address indexed avatar,
         address target
     );
 
+    RealitioV3 public oracle;
     uint256 public template;
     uint32 public questionTimeout;
     uint32 public questionCooldown;
     uint32 public answerExpiration;
     address public questionArbitrator;
+    uint256 public minimumBond;
 
     // Mapping of question hash to question id. Special case: INVALIDATED for question hashes that have been invalidated
     mapping(bytes32 => bytes32) public questionIds;
@@ -47,10 +50,10 @@ contract TellorModule is Module, UsingTellor {
     /// @param _owner Address of the owner
     /// @param _avatar Address of the avatar (e.g. a Safe)
     /// @param _target Address of the contract that will call exec function
-    /// @param _tellorAddress Address of the Tellor contract
     /// @param timeout Timeout in seconds that should be required for the oracle
     /// @param cooldown Cooldown in seconds that should be required after a oracle provided answer
     /// @param expiration Duration that a positive answer of the oracle is valid in seconds (or 0 if valid forever)
+    /// @param bond Minimum bond that is required for an answer to be accepted
     /// @param templateId ID of the template that should be used for proposal questions (see https://github.com/realitio/realitio-dapp#structuring-and-fetching-information)
     /// @param arbitrator Address of the arbitrator that will secure the oracle resolution
     /// @notice There need to be at least 60 seconds between end of cooldown and expiration
@@ -58,10 +61,12 @@ contract TellorModule is Module, UsingTellor {
         address _owner,
         address _avatar,
         address _target,
+        // RealitioV3 _oracle,
         address payable _tellorAddress,
         uint32 timeout,
         uint32 cooldown,
         uint32 expiration,
+        uint256 bond,
         uint256 templateId,
         address arbitrator
     ) UsingTellor(_tellorAddress) {
@@ -72,6 +77,7 @@ contract TellorModule is Module, UsingTellor {
             timeout,
             cooldown,
             expiration,
+            bond,
             templateId,
             arbitrator
         );
@@ -86,6 +92,7 @@ contract TellorModule is Module, UsingTellor {
             uint32 timeout,
             uint32 cooldown,
             uint32 expiration,
+            uint256 bond,
             uint256 templateId,
             address arbitrator
         ) = abi.decode(
@@ -97,6 +104,7 @@ contract TellorModule is Module, UsingTellor {
                     uint32,
                     uint32,
                     uint32,
+                    uint256,
                     uint256,
                     address
                 )
@@ -115,11 +123,12 @@ contract TellorModule is Module, UsingTellor {
         questionTimeout = timeout;
         questionCooldown = cooldown;
         questionArbitrator = arbitrator;
+        minimumBond = bond;
         template = templateId;
 
         transferOwnership(_owner);
 
-        emit TellorModuleSetup(msg.sender, _owner, avatar, target);
+        emit RealityModuleSetup(msg.sender, _owner, avatar, target);
     }
 
     /// @notice This can only be called by the owner
@@ -161,6 +170,13 @@ contract TellorModule is Module, UsingTellor {
         questionArbitrator = arbitrator;
     }
 
+    /// @dev Sets the minimum bond that is required for an answer to be accepted.
+    /// @param bond Minimum bond that is required for an answer to be accepted
+    /// @notice This can only be called by the owner
+    function setMinimumBond(uint256 bond) public onlyOwner {
+        minimumBond = bond;
+    }
+
     /// @dev Sets the template that should be used for future questions.
     /// @param templateId ID of the template that should be used for proposal questions
     /// @notice Check https://github.com/realitio/realitio-dapp#structuring-and-fetching-information for more information
@@ -187,7 +203,7 @@ contract TellorModule is Module, UsingTellor {
         string memory proposalId,
         bytes32[] memory txHashes,
         uint256 nonce
-    ) public {
+    ) internal {
         // We generate the question string used for the oracle
         string memory question = buildQuestion(proposalId, txHashes);
         bytes32 questionHash = keccak256(bytes(question));
@@ -195,7 +211,7 @@ contract TellorModule is Module, UsingTellor {
             // Previous nonce must have been invalidated by the oracle.
             // However, if the proposal was internally invalidated, it should not be possible to ask it again.
             bytes32 currentQuestionId = questionIds[questionHash];
-            (bool _ifRetrieve, , ) = getDataBefore(
+               (bool _ifRetrieve, , ) = getDataBefore(
                 currentQuestionId,
                 block.timestamp - 1 hours
             );
@@ -205,7 +221,7 @@ contract TellorModule is Module, UsingTellor {
             );
             require(
                 _ifRetrieve,
-                "No data retrieved"
+                "Data not retrieved"
             );
         } else {
             require(
@@ -213,11 +229,18 @@ contract TellorModule is Module, UsingTellor {
                 "Proposal has already been submitted"
             );
         }
-        bytes32 questionId = getQuestionId(proposalId);
+        bytes32 expectedQuestionId = getQuestionId(proposalId);
         // Set the question hash for this question id
-        questionIds[questionHash] = questionId;
-        emit ProposalQuestionCreated(questionId, proposalId);
+        questionIds[questionHash] = expectedQuestionId;
+        // bytes32 questionId = askQuestion(question, nonce);
+        // require(expectedQuestionId == questionId, "Unexpected question id");
+        emit ProposalQuestionCreated(expectedQuestionId, proposalId);
     }
+
+    // function askQuestion(string memory question, uint256 nonce)
+    //     internal
+    //     virtual
+    //     returns (bytes32);
 
     /// @dev Marks a proposal as invalid, preventing execution of the connected transactions
     /// @param proposalId Id that should identify the proposal uniquely
@@ -257,17 +280,18 @@ contract TellorModule is Module, UsingTellor {
         );
         (bool _ifRetrieve, , ) = getDataBefore(
             questionId,
-            block.timestamp - 1 hours
+            block.timestamp - expirationDuration
         );
+
         require(
             _ifRetrieve,
-            "Only positive answers can expire"
+            "Data not retrieved"
         );
-        uint256 finalizeTs = getTimestampbyQueryIdandIndex(questionId, getNewValueCountbyQueryId(questionId)-1);
-        require(
-            finalizeTs + uint256(expirationDuration) < block.timestamp,
-            "Answer has not expired yet"
-        );
+        // uint256 finalizeTs = getTimestampbyQueryIdandIndex(questionId, getNewValueCountbyQueryId(questionId)-1);
+        // require(
+        //     finalizeTs + uint256(expirationDuration) < block.timestamp,
+        //     "Answer has not expired yet"
+        // );
         questionIds[questionHash] = INVALIDATED;
     }
 
@@ -336,19 +360,18 @@ contract TellorModule is Module, UsingTellor {
             txIndex
         );
         require(txHashes[txIndex] == txHash, "Unexpected transaction hash");
+
         // Check that the result of the question is 1 (true)
-        (bool _ifRetrieve, , ) = getDataBefore(
-            questionId,
-            block.timestamp - 1 hours
-        );
         require(
-            _ifRetrieve,
-            "No value found for this question"
+            oracle.resultFor(questionId) == bytes32(uint256(1)),
+            "Transaction was not approved"
         );
-        uint256 finalizeTs = getTimestampbyQueryIdandIndex(
-            questionId,
-            uint32(0)
+        uint256 minBond = minimumBond;
+        require(
+            minBond == 0 || minBond <= oracle.getBond(questionId),
+            "Bond on question not high enough"
         );
+        uint32 finalizeTs = oracle.getFinalizeTS(questionId);
         // The answer is valid in the time after the cooldown and before the expiration time (if set).
         require(
             finalizeTs + uint256(questionCooldown) < block.timestamp,
@@ -394,6 +417,30 @@ contract TellorModule is Module, UsingTellor {
     }
 
     /// @dev Generate the question id.
+    /// @notice It is required that this is the same as for the oracle implementation used.
+    // function getQuestionId(string memory question, uint256 nonce)
+    //     public
+    //     view
+    //     returns (bytes32)
+    // {
+    //     // Ask the question with a starting time of 0, so that it can be immediately answered
+    //     bytes32 contentHash = keccak256(
+    //         abi.encodePacked(template, uint32(0), question)
+    //     );
+    //     return
+    //         keccak256(
+    //             abi.encodePacked(
+    //                 contentHash,
+    //                 questionArbitrator,
+    //                 questionTimeout,
+    //                 minimumBond,
+    //                 oracle,
+    //                 this,
+    //                 nonce
+    //             )
+    //         );
+    // }
+        /// @dev Generate the question id.
     /// @notice It is required that this is the same as for the oracle implementation used.
     function getQuestionId(string memory _proposalId)
         public
