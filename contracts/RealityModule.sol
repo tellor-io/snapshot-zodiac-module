@@ -4,6 +4,8 @@ pragma solidity >=0.8.0;
 import "@gnosis.pm/zodiac/contracts/core/Module.sol";
 import "./interfaces/RealitioV3.sol";
 import "usingtellor/contracts/UsingTellor.sol";
+import "hardhat/console.sol";
+
 
 contract RealityModule is Module, UsingTellor {
     bytes32 public constant INVALIDATED =
@@ -213,7 +215,7 @@ contract RealityModule is Module, UsingTellor {
             bytes32 currentQuestionId = questionIds[questionHash];
                (bool _ifRetrieve, , ) = getDataBefore(
                 currentQuestionId,
-                block.timestamp - 1 hours
+                block.timestamp - questionCooldown
             );
             require(
                 currentQuestionId != INVALIDATED,
@@ -280,7 +282,7 @@ contract RealityModule is Module, UsingTellor {
         );
         (bool _ifRetrieve, , ) = getDataBefore(
             questionId,
-            block.timestamp - expirationDuration
+            block.timestamp - questionCooldown
         );
 
         require(
@@ -345,6 +347,7 @@ contract RealityModule is Module, UsingTellor {
         );
         // Lookup question id for this proposal
         bytes32 questionId = questionIds[questionHash];
+
         // Question hash needs to set to be eligible for execution
         require(
             questionId != bytes32(0),
@@ -362,21 +365,30 @@ contract RealityModule is Module, UsingTellor {
         require(txHashes[txIndex] == txHash, "Unexpected transaction hash");
 
         // Check that the result of the question is 1 (true)
-        require(
-            oracle.resultFor(questionId) == bytes32(uint256(1)),
-            "Transaction was not approved"
+        // require(
+        //     oracle.resultFor(questionId) == bytes32(uint256(1)),
+        //     "Transaction was not approved"
+        // );
+                (bool _ifRetrieve, , ) = getDataBefore(
+            questionId,
+            block.timestamp - questionCooldown
         );
-        uint256 minBond = minimumBond;
         require(
-            minBond == 0 || minBond <= oracle.getBond(questionId),
-            "Bond on question not high enough"
+            _ifRetrieve,
+            "Data not retrieved"
         );
-        uint32 finalizeTs = oracle.getFinalizeTS(questionId);
+
+        // uint256 minBond = minimumBond;
+        // require(
+        //     minBond == 0 || minBond <= oracle.getBond(questionId),
+        //     "Bond on question not high enough"
+        // );
+        uint256 finalizeTs = getTimestampbyQueryIdandIndex(questionId, getNewValueCountbyQueryId(questionId)-1);
         // The answer is valid in the time after the cooldown and before the expiration time (if set).
-        require(
-            finalizeTs + uint256(questionCooldown) < block.timestamp,
-            "Wait for additional cooldown"
-        );
+        // require(
+        //     finalizeTs + uint256(questionCooldown) < block.timestamp,
+        //     "Wait for additional cooldown"
+        // );
         uint32 expiration = answerExpiration;
         require(
             expiration == 0 ||
@@ -399,6 +411,7 @@ contract RealityModule is Module, UsingTellor {
         // Mark transaction as executed
         executedProposalTransactions[questionHash][txHash] = true;
         // Execute the transaction via the target.
+        console.log("exec function");
         require(exec(to, value, data, operation), "Module transaction failed");
     }
 
