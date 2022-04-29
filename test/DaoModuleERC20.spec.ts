@@ -44,9 +44,6 @@ const ZERO_STATE =
   "0x0000000000000000000000000000000000000000000000000000000000000000";
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
-let tellorOracleAddress: string;
-let Oracle1: Contract;
-
 describe("RealityModuleERC20", async () => {
   const baseSetup = deployments.createFixture(async () => {
     await deployments.fixture();
@@ -61,6 +58,7 @@ describe("RealityModuleERC20", async () => {
     const Oracle = await ethers.getContractFactory(abi, bytecode);
     const oracle = await Oracle.deploy();
     await oracle.deployed();
+
     return { Avatar, avatar, module, mock, oracle };
   });
 
@@ -89,8 +87,6 @@ describe("RealityModuleERC20", async () => {
       base.mock.address,
       base.mock.address,
       base.mock.address,
-      // base.oracle.address,
-      // tellorOracleAddress,
       base.oracle.address,
       42,
       23,
@@ -1703,10 +1699,12 @@ describe("RealityModuleERC20", async () => {
 
       await oracle.submitValue(
         queryId,
-        abiCoder.encode(["uint256[]"], [[10023, 1058]]),
+        abiCoder.encode(["uint256[]"], [[1058, 10023]]),
         0,
         queryData
       );
+
+      await h.advanceTime(23)
 
       await module.addProposal(id, [txHash]);
 
@@ -1724,76 +1722,76 @@ describe("RealityModuleERC20", async () => {
           tx.data,
           tx.operation
         )
-      ).to.be.revertedWith("Data not retrieved");
+      ).to.be.revertedWith("Transaction was not approved");
     });
 
-    it("throws if bond was not high enough", async () => {
-      const { avatar, mock, module, oracle } = await setupTestWithTestAvatar();
+    // it("throws if bond was not high enough", async () => {
+    //   const { avatar, mock, module, oracle } = await setupTestWithTestAvatar();
 
-      const id = "some_random_id";
-      const tx = {
-        to: user1.address,
-        value: 0,
-        data: "0xbaddad",
-        operation: 0,
-        nonce: 0,
-      };
-      const txHash = await module.getTransactionHash(
-        tx.to,
-        tx.value,
-        tx.data,
-        tx.operation,
-        tx.nonce
-      );
-      const question = await module.buildQuestion(id, [txHash]);
-      const questionId = await module.getQuestionId(id);
+    //   const id = "some_random_id";
+    //   const tx = {
+    //     to: user1.address,
+    //     value: 0,
+    //     data: "0xbaddad",
+    //     operation: 0,
+    //     nonce: 0,
+    //   };
+    //   const txHash = await module.getTransactionHash(
+    //     tx.to,
+    //     tx.value,
+    //     tx.data,
+    //     tx.operation,
+    //     tx.nonce
+    //   );
+    //   const question = await module.buildQuestion(id, [txHash]);
+    //   const questionId = await module.getQuestionId(id);
 
-      await mock.givenMethodReturnUint(
-        module.interface.getSighash("getQuestionId"),
-        questionId
-      );
+    //   await mock.givenMethodReturnUint(
+    //     module.interface.getSighash("getQuestionId"),
+    //     questionId
+    //   );
 
-      //submit to the oracle first
-      const queryDataArgs = abiCoder.encode(["string"], [id]);
-      const queryData = abiCoder.encode(
-        ["string", "bytes"],
-        ["Snapshot", queryDataArgs]
-      );
-      const queryId = ethers.utils.keccak256(queryData);
+    //   //submit to the oracle first
+    //   const queryDataArgs = abiCoder.encode(["string"], [id]);
+    //   const queryData = abiCoder.encode(
+    //     ["string", "bytes"],
+    //     ["Snapshot", queryDataArgs]
+    //   );
+    //   const queryId = ethers.utils.keccak256(queryData);
 
-      await oracle.submitValue(
-        queryId,
-        abiCoder.encode(["uint256[]"], [[10023, 1058]]),
-        0,
-        queryData
-      );
+    //   await oracle.submitValue(
+    //     queryId,
+    //     abiCoder.encode(["uint256[]"], [[10023, 1058]]),
+    //     0,
+    //     queryData
+    //   );
 
-      h.advanceTime(10000); //cooldown is 23
+    //   h.advanceTime(10000); //cooldown is 23
 
-      await module.addProposal(id, [txHash]);
+    //   await module.addProposal(id, [txHash]);
 
-      await mock.givenMethodReturnBool(
-        module.interface.getSighash("getDataBefore"),
-        true
-      );
+    //   await mock.givenMethodReturnBool(
+    //     module.interface.getSighash("getDataBefore"),
+    //     true
+    //   );
 
-      const setMinimumBond = module.interface.encodeFunctionData(
-        "setMinimumBond",
-        [7331]
-      );
-      await avatar.exec(module.address, 0, setMinimumBond);
+    //   const setMinimumBond = module.interface.encodeFunctionData(
+    //     "setMinimumBond",
+    //     [7331]
+    //   );
+    //   await avatar.exec(module.address, 0, setMinimumBond);
 
-      await expect(
-        module.executeProposal(
-          id,
-          [txHash],
-          tx.to,
-          tx.value,
-          tx.data,
-          tx.operation
-        )
-      ).to.be.revertedWith("Bond on question not high enough");
-    });
+    //   await expect(
+    //     module.executeProposal(
+    //       id,
+    //       [txHash],
+    //       tx.to,
+    //       tx.value,
+    //       tx.data,
+    //       tx.operation
+    //     )
+    //   ).to.be.revertedWith("Bond on question not high enough");
+    // });
 
     it("triggers module transaction when bond is high enough", async () => {
       const { avatar, mock, module, oracle } = await setupTestWithTestAvatar();
@@ -1831,10 +1829,10 @@ describe("RealityModuleERC20", async () => {
 
       const block = await ethers.provider.getBlock("latest");
       await mock.reset();
-      await mock.givenMethodReturnUint(
-        oracle.interface.getSighash("getBond"),
-        7331
-      );
+      // await mock.givenMethodReturnUint(
+      //   oracle.interface.getSighash("getBond"),
+      //   7331
+      // );
       await mock.givenMethodReturnBool(
         module.interface.getSighash("getDataBefore"),
         true
@@ -1844,7 +1842,24 @@ describe("RealityModuleERC20", async () => {
         block.timestamp
       );
 
-      await nextBlockTime(hre, block.timestamp + 24);
+      //submit to the oracle first
+      const queryDataArgs = abiCoder.encode(["string"], [id]);
+      const queryData = abiCoder.encode(
+        ["string", "bytes"],
+        ["Snapshot", queryDataArgs]
+      );
+      const queryId = ethers.utils.keccak256(queryData);
+
+      await oracle.submitValue(
+        queryId,
+        abiCoder.encode(["uint256[]"], [[10023, 1058]]),
+        0,
+        queryData
+      );
+
+      await h.advanceTime(23);
+      // await nextBlockTime(hre, block.timestamp + 24);
+
       await module.executeProposal(
         id,
         [txHash],
@@ -1902,7 +1917,6 @@ describe("RealityModuleERC20", async () => {
         0,
         queryData
       );
-      h.advanceTime(10000);
 
       await module.addProposal(id, [txHash]);
 
@@ -1975,7 +1989,7 @@ describe("RealityModuleERC20", async () => {
         0,
         queryData
       );
-      h.advanceTime(10000);
+      // h.advanceTime(10000);
 
       await module.addProposal(id, [txHash]);
       const block = await ethers.provider.getBlock("latest");
@@ -2010,9 +2024,9 @@ describe("RealityModuleERC20", async () => {
       );
       await avatar.exec(module.address, 0, resetAnswerExpiration);
 
-      expect((await mock.callStatic.invocationCount()).toNumber()).to.be.equals(
-        1
-      );
+      // expect((await mock.callStatic.invocationCount()).toNumber()).to.be.equals(
+      //   1
+      // );
       expect(
         (await hre.ethers.provider.getBalance(mock.address)).toNumber()
       ).to.be.equals(0);
@@ -2026,9 +2040,9 @@ describe("RealityModuleERC20", async () => {
         tx.operation
       );
 
-      expect((await mock.callStatic.invocationCount()).toNumber()).to.be.equals(
-        2
-      );
+      // expect((await mock.callStatic.invocationCount()).toNumber()).to.be.equals(
+      //   2
+      // );
       expect(
         (await hre.ethers.provider.getBalance(mock.address)).toNumber()
       ).to.be.equals(42);
@@ -2151,7 +2165,7 @@ describe("RealityModuleERC20", async () => {
         0,
         queryData
       );
-      h.advanceTime(10000);
+      // h.advanceTime(10000);
 
       await module.addProposal(id, [txHash]);
       const block = await ethers.provider.getBlock("latest");
@@ -2168,9 +2182,9 @@ describe("RealityModuleERC20", async () => {
         false
       );
       await nextBlockTime(hre, block.timestamp + 24);
-      expect((await mock.callStatic.invocationCount()).toNumber()).to.be.equals(
-        1
-      );
+      // expect((await mock.callStatic.invocationCount()).toNumber()).to.be.equals(
+      //   1
+      // );
       await expect(
         module.executeProposalWithIndex(
           id,
@@ -2251,7 +2265,7 @@ describe("RealityModuleERC20", async () => {
         0,
         queryData
       );
-      h.advanceTime(10000);
+      // h.advanceTime(10000);
 
       await module.addProposal(id, [txHash]);
 
@@ -2269,7 +2283,9 @@ describe("RealityModuleERC20", async () => {
         avatar.interface.getSighash("execTransactionFromModule"),
         true
       );
-      await nextBlockTime(hre, block.timestamp + 23);
+      // await nextBlockTime(hre, block.timestamp + 23);
+      await h.advanceTime(23)
+      
       await expect(
         module.executeProposal(
           id,
@@ -2281,7 +2297,9 @@ describe("RealityModuleERC20", async () => {
         )
       ).to.be.revertedWith("Wait for additional cooldown");
 
-      await nextBlockTime(hre, block.timestamp + 24);
+      // await nextBlockTime(hre, block.timestamp + 24);
+      await h.advanceTime(24)
+
       await module.executeProposal(
         id,
         [txHash],
@@ -2578,8 +2596,6 @@ describe("RealityModuleERC20", async () => {
         module.interface.getSighash("getQuestionId"),
         questionId
       );
-
-      console.log("questionId", questionId);
 
       // submit to the oracle first
       const queryDataArgs = abiCoder.encode(["string"], [id]);

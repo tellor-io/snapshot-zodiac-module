@@ -6,7 +6,6 @@ import "./interfaces/RealitioV3.sol";
 import "usingtellor/contracts/UsingTellor.sol";
 import "hardhat/console.sol";
 
-
 contract RealityModule is Module, UsingTellor {
     bytes32 public constant INVALIDATED =
         0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
@@ -213,7 +212,7 @@ contract RealityModule is Module, UsingTellor {
             // Previous nonce must have been invalidated by the oracle.
             // However, if the proposal was internally invalidated, it should not be possible to ask it again.
             bytes32 currentQuestionId = questionIds[questionHash];
-               (bool _ifRetrieve, , ) = getDataBefore(
+            (bool _ifRetrieve, , ) = getDataBefore(
                 currentQuestionId,
                 block.timestamp - questionCooldown
             );
@@ -221,10 +220,7 @@ contract RealityModule is Module, UsingTellor {
                 currentQuestionId != INVALIDATED,
                 "This proposal has been marked as invalid"
             );
-            require(
-                _ifRetrieve,
-                "Data not retrieved"
-            );
+            require(_ifRetrieve, "Data not retrieved");
         } else {
             require(
                 questionIds[questionHash] == bytes32(0),
@@ -285,10 +281,7 @@ contract RealityModule is Module, UsingTellor {
             block.timestamp - questionCooldown
         );
 
-        require(
-            _ifRetrieve,
-            "Data not retrieved"
-        );
+        require(_ifRetrieve, "Data not retrieved");
         // uint256 finalizeTs = getTimestampbyQueryIdandIndex(questionId, getNewValueCountbyQueryId(questionId)-1);
         // require(
         //     finalizeTs + uint256(expirationDuration) < block.timestamp,
@@ -364,27 +357,40 @@ contract RealityModule is Module, UsingTellor {
         );
         require(txHashes[txIndex] == txHash, "Unexpected transaction hash");
 
+        uint256 finalizeTs = getTimestampbyQueryIdandIndex(
+            questionId,
+            getNewValueCountbyQueryId(questionId) - 1
+        );
+        // The answer is valid in the time after the cooldown and before the expiration time (if set).
+        require(
+            finalizeTs + uint256(questionCooldown) < block.timestamp,
+            "Wait for additional cooldown"
+        );
+        
+        (bool _ifRetrieve, bytes memory _value, ) = getDataBefore(
+            questionId,
+            block.timestamp - questionCooldown
+        );
+
+        uint256[] memory values = abi.decode(_value, (uint256[]));
+        require(values[0] > values[1], "Transaction was not approved");
+
         // Check that the result of the question is 1 (true)
         // require(
         //     oracle.resultFor(questionId) == bytes32(uint256(1)),
         //     "Transaction was not approved"
         // );
-                (bool _ifRetrieve, , ) = getDataBefore(
-            questionId,
-            block.timestamp - questionCooldown
-        );
-        require(
-            _ifRetrieve,
-            "Data not retrieved"
-        );
+
+        require(_ifRetrieve, "Data not retrieved");
 
         // uint256 minBond = minimumBond;
         // require(
-        //     minBond == 0 || minBond <= oracle.getBond(questionId),
+        //     minBond == 0
+        //     || minBond <= oracle.getBond(questionId),
         //     "Bond on question not high enough"
         // );
-        uint256 finalizeTs = getTimestampbyQueryIdandIndex(questionId, getNewValueCountbyQueryId(questionId)-1);
-        // The answer is valid in the time after the cooldown and before the expiration time (if set).
+        // uint256 finalizeTs = getTimestampbyQueryIdandIndex(questionId, getNewValueCountbyQueryId(questionId)-1);
+        // // The answer is valid in the time after the cooldown and before the expiration time (if set).
         // require(
         //     finalizeTs + uint256(questionCooldown) < block.timestamp,
         //     "Wait for additional cooldown"
@@ -395,6 +401,7 @@ contract RealityModule is Module, UsingTellor {
                 finalizeTs + uint256(expiration) >= block.timestamp,
             "Answer has expired"
         );
+
         // Check this is either the first transaction in the list or that the previous question was already approved
         require(
             txIndex == 0 ||
@@ -411,7 +418,7 @@ contract RealityModule is Module, UsingTellor {
         // Mark transaction as executed
         executedProposalTransactions[questionHash][txHash] = true;
         // Execute the transaction via the target.
-        console.log("exec function");
+
         require(exec(to, value, data, operation), "Module transaction failed");
     }
 
@@ -453,7 +460,7 @@ contract RealityModule is Module, UsingTellor {
     //             )
     //         );
     // }
-        /// @dev Generate the question id.
+    /// @dev Generate the question id.
     /// @notice It is required that this is the same as for the oracle implementation used.
     function getQuestionId(string memory _proposalId)
         public
