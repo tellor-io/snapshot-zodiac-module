@@ -73,9 +73,9 @@ describe("RealityModuleERC20", async () => {
       42,
       23,
       0,
-      0,
-      1337,
-      base.oracle.address
+      // 0,
+      // 1337,
+      // base.oracle.address
     );
     return { ...base, Module, module };
   });
@@ -91,9 +91,9 @@ describe("RealityModuleERC20", async () => {
       42,
       23,
       0,
-      0,
-      1337,
-      base.oracle.address
+      // 0,
+      // 1337,
+      // base.oracle.address
     );
     return { ...base, Module, module };
   });
@@ -111,9 +111,9 @@ describe("RealityModuleERC20", async () => {
         42,
         23,
         0,
-        0,
-        1337,
-        user1.address
+        // 0,
+        // 1337,
+        // user1.address
       );
       await expect(
         module.setUp(buildMockInitializerParams(mock))
@@ -131,9 +131,9 @@ describe("RealityModuleERC20", async () => {
           42,
           23,
           0,
-          0,
-          1337,
-          user1.address
+          // 0,
+          // 1337,
+          // user1.address
         )
       ).to.be.revertedWith("Avatar can not be zero address");
     });
@@ -149,9 +149,9 @@ describe("RealityModuleERC20", async () => {
           42,
           23,
           0,
-          0,
-          1337,
-          user1.address
+          // 0,
+          // 1337,
+          // user1.address
         )
       ).to.be.revertedWith("Target can not be zero address");
     });
@@ -167,9 +167,9 @@ describe("RealityModuleERC20", async () => {
           0,
           0,
           0,
-          0,
-          0,
-          user1.address
+          // 0,
+          // 0,
+          // user1.address
         )
       ).to.be.revertedWith("Timeout has to be greater 0");
     });
@@ -185,9 +185,9 @@ describe("RealityModuleERC20", async () => {
           1,
           0,
           59,
-          0,
-          0,
-          user1.address
+          // 0,
+          // 0,
+          // user1.address
         )
       ).to.be.revertedWith(
         "There need to be at least 60s between end of cooldown and expiration"
@@ -204,9 +204,9 @@ describe("RealityModuleERC20", async () => {
         1,
         10,
         0,
-        0,
-        0,
-        user1.address
+        // 0,
+        // 0,
+        // user1.address
       );
     });
 
@@ -220,9 +220,9 @@ describe("RealityModuleERC20", async () => {
         1,
         10,
         0,
-        0,
-        0,
-        user1.address
+        // 0,
+        // 0,
+        // user1.address
       );
       await module.deployed();
       await expect(module.deployTransaction)
@@ -393,72 +393,72 @@ describe("RealityModuleERC20", async () => {
     });
   });
 
-  describe("setArbitrator", async () => {
-    it("throws if Ownable: caller is not the owner", async () => {
-      const { module } = await setupTestWithTestAvatar();
-      await expect(
-        module.setArbitrator(ethers.constants.AddressZero)
-      ).to.be.revertedWith("Ownable: caller is not the owner");
-    });
+  // describe("setArbitrator", async () => {
+  //   it("throws if Ownable: caller is not the owner", async () => {
+  //     const { module } = await setupTestWithTestAvatar();
+  //     await expect(
+  //       module.setArbitrator(ethers.constants.AddressZero)
+  //     ).to.be.revertedWith("Ownable: caller is not the owner");
+  //   });
 
-    it("updates arbitrator", async () => {
-      const { module, avatar, oracle } = await setupTestWithTestAvatar();
+  //   it("updates arbitrator", async () => {
+  //     const { module, avatar, oracle } = await setupTestWithTestAvatar();
 
-      expect(await module.questionArbitrator()).to.be.equals(oracle.address);
+  //     expect(await module.questionArbitrator()).to.be.equals(oracle.address);
 
-      const calldata = module.interface.encodeFunctionData("setArbitrator", [
-        ethers.constants.AddressZero,
-      ]);
-      await avatar.exec(module.address, 0, calldata);
+  //     const calldata = module.interface.encodeFunctionData("setArbitrator", [
+  //       ethers.constants.AddressZero,
+  //     ]);
+  //     await avatar.exec(module.address, 0, calldata);
 
-      expect(await module.questionArbitrator()).to.be.equals(
-        ethers.constants.AddressZero
-      );
-    });
-  });
+  //     expect(await module.questionArbitrator()).to.be.equals(
+  //       ethers.constants.AddressZero
+  //     );
+  //   });
+  // });
 
   describe("setMinimumBond", async () => {
-    it("throws if Ownable: caller is not the owner", async () => {
-      const { module } = await setupTestWithTestAvatar();
-      await expect(module.setMinimumBond(2)).to.be.revertedWith(
-        "Ownable: caller is not the owner"
-      );
-    });
+    // it("throws if Ownable: caller is not the owner", async () => {
+    //   const { module } = await setupTestWithTestAvatar();
+    //   await expect(module.setMinimumBond(2)).to.be.revertedWith(
+    //     "Ownable: caller is not the owner"
+    //   );
+    // });
 
-    it("updates minimum bond", async () => {
-      const { module, avatar } = await setupTestWithTestAvatar();
+    // it("updates minimum bond", async () => {
+    //   const { module, avatar } = await setupTestWithTestAvatar();
 
-      expect((await module.minimumBond()).toNumber()).to.be.equals(0);
+    //   expect((await module.minimumBond()).toNumber()).to.be.equals(0);
 
-      const calldata = module.interface.encodeFunctionData("setMinimumBond", [
-        424242,
-      ]);
-      await avatar.exec(module.address, 0, calldata);
+    //   const calldata = module.interface.encodeFunctionData("setMinimumBond", [
+    //     424242,
+    //   ]);
+    //   await avatar.exec(module.address, 0, calldata);
 
-      expect((await module.minimumBond()).toNumber()).to.be.equals(424242);
-    });
+    //   expect((await module.minimumBond()).toNumber()).to.be.equals(424242);
+    // });
   });
 
   describe("setTemplate", async () => {
-    it("throws if Ownable: caller is not the owner", async () => {
-      const { module } = await setupTestWithTestAvatar();
-      await expect(module.setTemplate(2)).to.be.revertedWith(
-        "Ownable: caller is not the owner"
-      );
-    });
+    // it("throws if Ownable: caller is not the owner", async () => {
+    //   const { module } = await setupTestWithTestAvatar();
+    //   await expect(module.setTemplate(2)).to.be.revertedWith(
+    //     "Ownable: caller is not the owner"
+    //   );
+    // });
 
-    it("updates template", async () => {
-      const { module, avatar } = await setupTestWithTestAvatar();
+    // it("updates template", async () => {
+    //   const { module, avatar } = await setupTestWithTestAvatar();
 
-      expect((await module.template()).toNumber()).to.be.equals(1337);
+    //   expect((await module.template()).toNumber()).to.be.equals(1337);
 
-      const calldata = module.interface.encodeFunctionData("setTemplate", [
-        112358,
-      ]);
-      await avatar.exec(module.address, 0, calldata);
+    //   const calldata = module.interface.encodeFunctionData("setTemplate", [
+    //     112358,
+    //   ]);
+    //   await avatar.exec(module.address, 0, calldata);
 
-      expect((await module.template()).toNumber()).to.be.equals(112358);
-    });
+    //   expect((await module.template()).toNumber()).to.be.equals(112358);
+    // });
   });
 
   describe("markProposalAsInvalidByHash", async () => {
@@ -857,14 +857,31 @@ describe("RealityModuleERC20", async () => {
         true
       );
 
+      //submit to the oracle first
+      const queryDataArgs = abiCoder.encode(["string"], [id]);
+      const queryData = abiCoder.encode(
+        ["string", "bytes"],
+        ["Snapshot", queryDataArgs]
+      );
+      const queryId = ethers.utils.keccak256(queryData);
+
+      await oracle.submitValue(
+        queryId,
+        abiCoder.encode(["uint256[]"], [[10023, 1058]]),
+        0,
+        queryData
+      );
+
       await module.addProposal(id, [txHash]);
 
-      await nextBlockTime(hre, block.timestamp + 91);
+      // await nextBlockTime(hre, block.timestamp + 91);
 
-      // await module.markProposalWithExpiredAnswerAsInvalid(questionHash);
-      // expect(await module.questionIds(questionHash)).to.be.deep.equals(
-      //   INVALIDATED_STATE
-      // );
+      await h.advanceTime(91);
+
+      await module.markProposalWithExpiredAnswerAsInvalid(questionHash);
+      expect(await module.questionIds(questionHash)).to.be.deep.equals(
+        INVALIDATED_STATE
+      );
     });
   });
 
@@ -1057,6 +1074,21 @@ describe("RealityModuleERC20", async () => {
         questionId
       );
 
+       //submit to the oracle first
+       const queryDataArgs = abiCoder.encode(["string"], [id]);
+       const queryData = abiCoder.encode(
+         ["string", "bytes"],
+         ["Snapshot", queryDataArgs]
+       );
+       const queryId = ethers.utils.keccak256(queryData);
+
+       await oracle.submitValue(
+         queryId,
+         abiCoder.encode(["uint256[]"], [[10023,1058]]),
+         0,
+         queryData
+       );
+
       await expect(module.addProposal(id, [txHash]))
         .to.emit(module, "ProposalQuestionCreated")
         .withArgs(questionId, id);
@@ -1065,10 +1097,10 @@ describe("RealityModuleERC20", async () => {
         questionId
       );
 
-      const askQuestionCalldata = module.interface.encodeFunctionData(
-        "getQuestionId",
-        [id]
-      );
+      // const askQuestionCalldata = module.interface.encodeFunctionData(
+      //   "getQuestionId",
+      //   [id]
+      // );
       // expect(
       //   (
       //     await mock.callStatic.invocationCountForCalldata(askQuestionCalldata)
@@ -1085,11 +1117,11 @@ describe("RealityModuleERC20", async () => {
     const id = "some_random_id";
     const txHash = ethers.utils.solidityKeccak256(["string"], ["some_tx_data"]);
 
-    const setMinimumBond = module.interface.encodeFunctionData(
-      "setMinimumBond",
-      [7331]
-    );
-    await avatar.exec(module.address, 0, setMinimumBond);
+    // const setMinimumBond = module.interface.encodeFunctionData(
+    //   "setMinimumBond",
+    //   [7331]
+    // );
+    // await avatar.exec(module.address, 0, setMinimumBond);
 
     const question = await module.buildQuestion(id, [txHash]);
     const questionId = await module.getQuestionId(id);
@@ -1188,16 +1220,27 @@ describe("RealityModuleERC20", async () => {
         module.interface.getSighash("getQuestionId"),
         questionId
       );
-
-      // const getDataBeforeCalldata = module.interface.encodeFunctionData(
-      //   "getDataBefore",
-      //   [previousQuestionId,h.getBlock()]
-      // );
-      // await mock.givenCalldataReturnUint(getDataBeforeCalldata, INVALIDATED_STATE);
+      const block = await ethers.provider.getBlock("latest");
+      const getDataBeforeCalldata = module.interface.encodeFunctionData(
+        "getDataBefore",
+        [previousQuestionId, block.timestamp]
+      );
+      await mock.givenCalldataReturnUint(
+        getDataBeforeCalldata,
+        INVALIDATED_STATE
+      );
 
       // await expect(module.addProposalWithNonce(id, [txHash], 1))
       //   .to.emit(module, "ProposalQuestionCreated")
       //   .withArgs(questionId, id);
+
+      // expect(await module.questionIds(questionHash)).to.be.deep.equals(
+      //   questionId
+      // );
+
+      //     await expect(module.addProposal(id, [txHash]))
+      // .to.emit(module, "ProposalQuestionCreated")
+      // .withArgs(questionId, id);
 
       expect(await module.questionIds(questionHash)).to.be.deep.equals(
         questionId
@@ -1236,6 +1279,7 @@ describe("RealityModuleERC20", async () => {
         module.interface.getSighash("getQuestionId"),
         previousQuestionId
       );
+
       await module.addProposal(id, [txHash]);
 
       const updateQuestionTimeout = module.interface.encodeFunctionData(
@@ -1249,18 +1293,24 @@ describe("RealityModuleERC20", async () => {
         module.interface.getSighash("getQuestionId"),
         questionId
       );
-      // await mock.givenCalldataReturnUint(
-      //   module.interface.encodeFunctionData("getDataBefore", [previousQuestionId]),
-      //   INVALIDATED_STATE
-      // );
 
-      //         await expect(module.addProposalWithNonce(id, [txHash]))
-      // // await expect(module.addProposalWithNonce(id, [txHash], 11))
+      const block = await ethers.provider.getBlock("latest");
+
+      await mock.givenCalldataReturnUint(
+        module.interface.encodeFunctionData("getDataBefore", [
+          previousQuestionId,
+          block.timestamp,
+        ]),
+        INVALIDATED_STATE
+      );
+
+      // await expect(module.addProposal(id, [txHash]))
+      //   // await expect(module.addProposalWithNonce(id, [txHash], 11))
       //   .to.emit(module, "ProposalQuestionCreated")
       //   .withArgs(questionId, id);
-      // expect(await module.questionIds(questionHash)).to.be.deep.equals(
-      //   questionId
-      // );
+      expect(await module.questionIds(questionHash)).to.be.deep.equals(
+        questionId
+      );
 
       // const askQuestionCalldata = module.interface.encodeFunctionData(
       //   "getQuestionId",
@@ -1302,10 +1352,13 @@ describe("RealityModuleERC20", async () => {
         module.interface.getSighash("getQuestionId"),
         questionId
       );
-      // await mock.givenCalldataReturnUint(
-      //   module.interface.encodeFunctionData("getDataBefore", [previousQuestionId]),
-      //   INVALIDATED_STATE
-      // );
+
+      const block = await ethers.provider.getBlock("latest");
+
+      await mock.givenCalldataReturnUint(
+        module.interface.encodeFunctionData("getDataBefore", [previousQuestionId, block.timestamp]),
+        INVALIDATED_STATE
+      );
 
       // await expect(module.addProposalWithNonce(id, [txHash], 1))
       //   .to.emit(module, "ProposalQuestionCreated")
@@ -1418,10 +1471,12 @@ describe("RealityModuleERC20", async () => {
         questionId
       );
 
-      // await mock.givenCalldataReturnUint(
-      //   module.interface.encodeFunctionData("getDataBefore", [previousQuestionId]),
-      //   INVALIDATED_STATE
-      // );
+      const block = await ethers.provider.getBlock("latest");
+
+      await mock.givenCalldataReturnUint(
+        module.interface.encodeFunctionData("getDataBefore", [previousQuestionId, block.timestamp]),
+        INVALIDATED_STATE
+      );
 
       // await expect(module.addProposalWithNonce(id, [txHash], 42))
       //   .to.emit(module, "ProposalQuestionCreated")
@@ -1430,10 +1485,10 @@ describe("RealityModuleERC20", async () => {
       //   questionId
       // );
 
-      // await mock.givenCalldataReturnBool(
-      //   module.interface.encodeFunctionData("getDataBefore", [questionId]),
-      //   true
-      // );
+      await mock.givenCalldataReturnBool(
+        module.interface.encodeFunctionData("getDataBefore", [questionId, block.timestamp]),
+        true
+      );
 
       // await expect(
       //   module.addProposalWithNonce(id, [txHash], 1337)
@@ -1704,7 +1759,7 @@ describe("RealityModuleERC20", async () => {
         queryData
       );
 
-      await h.advanceTime(23)
+      await h.advanceTime(23);
 
       await module.addProposal(id, [txHash]);
 
@@ -1820,11 +1875,11 @@ describe("RealityModuleERC20", async () => {
       );
       await module.addProposal(id, [txHash]);
 
-      const setMinimumBond = module.interface.encodeFunctionData(
-        "setMinimumBond",
-        [7331]
-      );
-      await avatar.exec(module.address, 0, setMinimumBond);
+      // const setMinimumBond = module.interface.encodeFunctionData(
+      //   "setMinimumBond",
+      //   [7331]
+      // );
+      // await avatar.exec(module.address, 0, setMinimumBond);
       await avatar.setModule(module.address);
 
       const block = await ethers.provider.getBlock("latest");
@@ -1989,7 +2044,6 @@ describe("RealityModuleERC20", async () => {
         0,
         queryData
       );
-      // h.advanceTime(10000);
 
       await module.addProposal(id, [txHash]);
       const block = await ethers.provider.getBlock("latest");
@@ -2265,7 +2319,6 @@ describe("RealityModuleERC20", async () => {
         0,
         queryData
       );
-      // h.advanceTime(10000);
 
       await module.addProposal(id, [txHash]);
 
@@ -2284,8 +2337,8 @@ describe("RealityModuleERC20", async () => {
         true
       );
       // await nextBlockTime(hre, block.timestamp + 23);
-      await h.advanceTime(23)
-      
+      // await h.advanceTime(23)
+
       await expect(
         module.executeProposal(
           id,
@@ -2298,7 +2351,7 @@ describe("RealityModuleERC20", async () => {
       ).to.be.revertedWith("Wait for additional cooldown");
 
       // await nextBlockTime(hre, block.timestamp + 24);
-      await h.advanceTime(24)
+      await h.advanceTime(24);
 
       await module.executeProposal(
         id,
@@ -2395,7 +2448,7 @@ describe("RealityModuleERC20", async () => {
         0,
         queryData
       );
-      h.advanceTime(10000);
+      // h.advanceTime(10000);
 
       await module.addProposal(id, [tx1Hash, tx2Hash]);
       const block = await ethers.provider.getBlock("latest");
@@ -2475,7 +2528,7 @@ describe("RealityModuleERC20", async () => {
         0,
         queryData
       );
-      h.advanceTime(10000);
+      // h.advanceTime(10000);
 
       await module.addProposal(id, [tx1Hash, tx2Hash]);
       const block = await ethers.provider.getBlock("latest");

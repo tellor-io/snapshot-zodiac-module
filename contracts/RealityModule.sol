@@ -2,7 +2,7 @@
 pragma solidity >=0.8.0;
 
 import "@gnosis.pm/zodiac/contracts/core/Module.sol";
-import "./interfaces/RealitioV3.sol";
+// import "./interfaces/RealitioV3.sol";
 import "usingtellor/contracts/UsingTellor.sol";
 import "hardhat/console.sol";
 
@@ -34,13 +34,13 @@ contract RealityModule is Module, UsingTellor {
         address target
     );
 
-    RealitioV3 public oracle;
-    uint256 public template;
+    // RealitioV3 public oracle;
+    // uint256 public template;
     uint32 public questionTimeout;
     uint32 public questionCooldown;
     uint32 public answerExpiration;
-    address public questionArbitrator;
-    uint256 public minimumBond;
+    // address public questionArbitrator;
+    // uint256 public minimumBond;
 
     // Mapping of question hash to question id. Special case: INVALIDATED for question hashes that have been invalidated
     mapping(bytes32 => bytes32) public questionIds;
@@ -51,12 +51,10 @@ contract RealityModule is Module, UsingTellor {
     /// @param _owner Address of the owner
     /// @param _avatar Address of the avatar (e.g. a Safe)
     /// @param _target Address of the contract that will call exec function
+    /// @param _tellorAddress Address of the Tellor oracle contract
     /// @param timeout Timeout in seconds that should be required for the oracle
     /// @param cooldown Cooldown in seconds that should be required after a oracle provided answer
     /// @param expiration Duration that a positive answer of the oracle is valid in seconds (or 0 if valid forever)
-    /// @param bond Minimum bond that is required for an answer to be accepted
-    /// @param templateId ID of the template that should be used for proposal questions (see https://github.com/realitio/realitio-dapp#structuring-and-fetching-information)
-    /// @param arbitrator Address of the arbitrator that will secure the oracle resolution
     /// @notice There need to be at least 60 seconds between end of cooldown and expiration
     constructor(
         address _owner,
@@ -66,21 +64,23 @@ contract RealityModule is Module, UsingTellor {
         address payable _tellorAddress,
         uint32 timeout,
         uint32 cooldown,
-        uint32 expiration,
-        uint256 bond,
-        uint256 templateId,
-        address arbitrator
-    ) UsingTellor(_tellorAddress) {
+        uint32 expiration
+    )
+        // uint256 bond,
+        // uint256 templateId,
+        // address arbitrator
+        UsingTellor(_tellorAddress)
+    {
         bytes memory initParams = abi.encode(
             _owner,
             _avatar,
             _target,
             timeout,
             cooldown,
-            expiration,
-            bond,
-            templateId,
-            arbitrator
+            expiration
+            // bond,
+            // templateId,
+            // arbitrator
         );
         setUp(initParams);
     }
@@ -92,11 +92,11 @@ contract RealityModule is Module, UsingTellor {
             address _target,
             uint32 timeout,
             uint32 cooldown,
-            uint32 expiration,
-            uint256 bond,
-            uint256 templateId,
-            address arbitrator
-        ) = abi.decode(
+            uint32 expiration
+        ) = // uint256 bond,
+            // uint256 templateId,
+            // address arbitrator
+            abi.decode(
                 initParams,
                 (
                     address,
@@ -104,10 +104,10 @@ contract RealityModule is Module, UsingTellor {
                     address,
                     uint32,
                     uint32,
-                    uint32,
-                    uint256,
-                    uint256,
-                    address
+                    uint32
+                    // uint256,
+                    // uint256,
+                    // address
                 )
             );
         __Ownable_init();
@@ -123,9 +123,9 @@ contract RealityModule is Module, UsingTellor {
         answerExpiration = expiration;
         questionTimeout = timeout;
         questionCooldown = cooldown;
-        questionArbitrator = arbitrator;
-        minimumBond = bond;
-        template = templateId;
+        // questionArbitrator = arbitrator;
+        // minimumBond = bond;
+        // template = templateId;
 
         transferOwnership(_owner);
 
@@ -167,24 +167,24 @@ contract RealityModule is Module, UsingTellor {
     /// @dev Sets the question arbitrator that will be used for future questions.
     /// @param arbitrator Address of the arbitrator
     /// @notice This can only be called by the owner
-    function setArbitrator(address arbitrator) public onlyOwner {
-        questionArbitrator = arbitrator;
-    }
+    // function setArbitrator(address arbitrator) public onlyOwner {
+    //     questionArbitrator = arbitrator;
+    // }
 
     /// @dev Sets the minimum bond that is required for an answer to be accepted.
     /// @param bond Minimum bond that is required for an answer to be accepted
     /// @notice This can only be called by the owner
-    function setMinimumBond(uint256 bond) public onlyOwner {
-        minimumBond = bond;
-    }
+    // function setMinimumBond(uint256 bond) public onlyOwner {
+    //     minimumBond = bond;
+    // }
 
     /// @dev Sets the template that should be used for future questions.
     /// @param templateId ID of the template that should be used for proposal questions
     /// @notice Check https://github.com/realitio/realitio-dapp#structuring-and-fetching-information for more information
     /// @notice This can only be called by the owner
-    function setTemplate(uint256 templateId) public onlyOwner {
-        template = templateId;
-    }
+    // function setTemplate(uint256 templateId) public onlyOwner {
+    //     template = templateId;
+    // }
 
     /// @dev Function to add a proposal that should be considered for execution
     /// @param proposalId Id that should identify the proposal uniquely
@@ -276,12 +276,16 @@ contract RealityModule is Module, UsingTellor {
             questionId != bytes32(0),
             "No question id set for provided proposal"
         );
-        (bool _ifRetrieve, , ) = getDataBefore(
+        (bool _ifRetrieve, bytes memory _value, ) = getDataBefore(
             questionId,
             block.timestamp - questionCooldown
         );
 
         require(_ifRetrieve, "Data not retrieved");
+
+        uint256[] memory values = abi.decode(_value, (uint256[]));
+        require(values[0] > values[1], "Transaction was not approved");
+
         // uint256 finalizeTs = getTimestampbyQueryIdandIndex(questionId, getNewValueCountbyQueryId(questionId)-1);
         // require(
         //     finalizeTs + uint256(expirationDuration) < block.timestamp,
@@ -362,11 +366,12 @@ contract RealityModule is Module, UsingTellor {
             getNewValueCountbyQueryId(questionId) - 1
         );
         // The answer is valid in the time after the cooldown and before the expiration time (if set).
+
         require(
             finalizeTs + uint256(questionCooldown) < block.timestamp,
             "Wait for additional cooldown"
         );
-        
+
         (bool _ifRetrieve, bytes memory _value, ) = getDataBefore(
             questionId,
             block.timestamp - questionCooldown
