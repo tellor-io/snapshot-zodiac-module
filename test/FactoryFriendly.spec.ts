@@ -12,6 +12,7 @@ describe("Module works with factory", () => {
   const timeout = 60;
   const cooldown = 60;
   const expiration = 120;
+  const quorumVotes = 0
   // const bond = BigNumber.from(10000);
   // const templateId = BigNumber.from(1);
 
@@ -22,7 +23,7 @@ describe("Module works with factory", () => {
     "uint32",
     "uint32",
     "uint32",
-    // "uint256",
+    "uint256",
     // "uint256",
     // "address",
   ];
@@ -30,10 +31,10 @@ describe("Module works with factory", () => {
   const baseSetup = deployments.createFixture(async () => {
     await deployments.fixture();
     const Factory = await hre.ethers.getContractFactory("ModuleProxyFactory");
-    const RealityModule = await hre.ethers.getContractFactory("RealityModule");
+    const TellorModule = await hre.ethers.getContractFactory("TellorModule");
     const factory = await Factory.deploy();
 
-    const masterCopy = await RealityModule.deploy(
+    const masterCopy = await TellorModule.deploy(
       FIRST_ADDRESS,
       FIRST_ADDRESS,
       FIRST_ADDRESS,
@@ -41,7 +42,7 @@ describe("Module works with factory", () => {
       1,
       0,
       60,
-      // 0,
+      0,
       // 0,
       // ZERO_ADDRESS
     );
@@ -60,6 +61,7 @@ describe("Module works with factory", () => {
       timeout,
       cooldown,
       expiration,
+      quorumVotes,
       // bond,
       // templateId,
       // oracle.address,
@@ -70,7 +72,7 @@ describe("Module works with factory", () => {
     );
   });
 
-  it("should deploy new reality module proxy", async () => {
+  it("should deploy new Tellor module proxy", async () => {
     const { factory, masterCopy } = await baseSetup();
     const [safe, oracle] = await ethers.getSigners();
     const paramsValues = [
@@ -80,6 +82,7 @@ describe("Module works with factory", () => {
       timeout,
       cooldown,
       expiration,
+      quorumVotes,
       // bond,
       // templateId,
       // oracle.address,
@@ -101,12 +104,13 @@ describe("Module works with factory", () => {
     );
 
     const newProxy = await hre.ethers.getContractAt(
-      "RealityModule",
+      "TellorModule",
       newProxyAddress
     );
     expect(await newProxy.questionTimeout()).to.be.eq(timeout);
     expect(await newProxy.questionCooldown()).to.be.eq(cooldown);
     expect(await newProxy.answerExpiration()).to.be.eq(expiration);
+    expect(await newProxy.quorumVotes()).to.be.eq(quorumVotes);
     // expect(await newProxy.minimumBond()).to.be.eq(BigNumber.from(bond));
     // expect(await newProxy.template()).to.be.eq(BigNumber.from(templateId));
   });

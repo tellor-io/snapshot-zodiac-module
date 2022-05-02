@@ -56,7 +56,7 @@ export default {
      hardhat: {
       // throwOnTransactionFailures: true,
       // throwOnCallFailures: true,
-      allowUnlimitedContractSize: true,
+      // allowUnlimitedContractSize: true,
       // blockGasLimit: 0x1fffffffffffff,
     },
     mainnet: {

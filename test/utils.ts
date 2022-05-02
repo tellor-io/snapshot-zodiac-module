@@ -11,7 +11,7 @@ export const buildMockInitializerParams = (mock: Contract): string => {
       "uint32",
       "uint32",
       "uint32",
-      // "uint256",
+      "uint256",
       // "uint256",
       // "address",
     ],
@@ -22,7 +22,7 @@ export const buildMockInitializerParams = (mock: Contract): string => {
       42,
       23,
       0,
-      // 0,
+      0,
       // 1337,
       // mock.address,
     ]

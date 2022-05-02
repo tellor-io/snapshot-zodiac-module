@@ -2,11 +2,10 @@
 pragma solidity >=0.8.0;
 
 import "@gnosis.pm/zodiac/contracts/core/Module.sol";
-// import "./interfaces/RealitioV3.sol";
 import "usingtellor/contracts/UsingTellor.sol";
 import "hardhat/console.sol";
 
-contract RealityModule is Module, UsingTellor {
+contract TellorModule is Module, UsingTellor {
     bytes32 public constant INVALIDATED =
         0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
 
@@ -22,25 +21,25 @@ contract RealityModule is Module, UsingTellor {
     //     "Transaction(address to,uint256 value,bytes data,uint8 operation,uint256 nonce)"
     // );
 
+    // Events
     event ProposalQuestionCreated(
         bytes32 indexed questionId,
         string indexed proposalId
     );
 
-    event RealityModuleSetup(
+    event TellorModuleSetup(
         address indexed initiator,
         address indexed owner,
         address indexed avatar,
-        address target
+        address target,
+        uint256 quorumVotes
     );
 
-    // RealitioV3 public oracle;
-    // uint256 public template;
+    // Storage
+    uint256 public quorumVotes;
     uint32 public questionTimeout;
     uint32 public questionCooldown;
     uint32 public answerExpiration;
-    // address public questionArbitrator;
-    // uint256 public minimumBond;
 
     // Mapping of question hash to question id. Special case: INVALIDATED for question hashes that have been invalidated
     mapping(bytes32 => bytes32) public questionIds;
@@ -48,39 +47,35 @@ contract RealityModule is Module, UsingTellor {
     mapping(bytes32 => mapping(bytes32 => bool))
         public executedProposalTransactions;
 
-    /// @param _owner Address of the owner
-    /// @param _avatar Address of the avatar (e.g. a Safe)
-    /// @param _target Address of the contract that will call exec function
-    /// @param _tellorAddress Address of the Tellor oracle contract
-    /// @param timeout Timeout in seconds that should be required for the oracle
-    /// @param cooldown Cooldown in seconds that should be required after a oracle provided answer
-    /// @param expiration Duration that a positive answer of the oracle is valid in seconds (or 0 if valid forever)
-    /// @notice There need to be at least 60 seconds between end of cooldown and expiration
+    /*Functions*/
+    /**
+     * @param _owner Address of the owner
+     * @param _avatar Address of the avatar (e.g. a Safe)
+     * @param _target Address of the contract that will call exec function
+     * @param _tellorAddress Address of the Tellor oracle contract
+     * @param timeout Timeout in seconds that should be required for the oracle
+     * @param cooldown Cooldown in seconds that should be required after a oracle provided answer
+     * @param expiration Duration that a positive answer of the oracle is valid in seconds (or 0 if valid forever)
+     * @notice There need to be at least 60 seconds between end of cooldown and expiration
+     */
     constructor(
         address _owner,
         address _avatar,
         address _target,
-        // RealitioV3 _oracle,
         address payable _tellorAddress,
         uint32 timeout,
         uint32 cooldown,
-        uint32 expiration
-    )
-        // uint256 bond,
-        // uint256 templateId,
-        // address arbitrator
-        UsingTellor(_tellorAddress)
-    {
+        uint32 expiration,
+        uint256 _quorumVotes
+    ) UsingTellor(_tellorAddress) {
         bytes memory initParams = abi.encode(
             _owner,
             _avatar,
             _target,
             timeout,
             cooldown,
-            expiration
-            // bond,
-            // templateId,
-            // arbitrator
+            expiration,
+            _quorumVotes
         );
         setUp(initParams);
     }
@@ -92,23 +87,11 @@ contract RealityModule is Module, UsingTellor {
             address _target,
             uint32 timeout,
             uint32 cooldown,
-            uint32 expiration
-        ) = // uint256 bond,
-            // uint256 templateId,
-            // address arbitrator
-            abi.decode(
+            uint32 expiration,
+            uint256 _quorumVotes
+        ) = abi.decode(
                 initParams,
-                (
-                    address,
-                    address,
-                    address,
-                    uint32,
-                    uint32,
-                    uint32
-                    // uint256,
-                    // uint256,
-                    // address
-                )
+                (address, address, address, uint32, uint32, uint32, uint256)
             );
         __Ownable_init();
         require(_avatar != address(0), "Avatar can not be zero address");
@@ -120,16 +103,14 @@ contract RealityModule is Module, UsingTellor {
         );
         avatar = _avatar;
         target = _target;
+        quorumVotes = _quorumVotes;
         answerExpiration = expiration;
         questionTimeout = timeout;
         questionCooldown = cooldown;
-        // questionArbitrator = arbitrator;
-        // minimumBond = bond;
-        // template = templateId;
 
         transferOwnership(_owner);
 
-        emit RealityModuleSetup(msg.sender, _owner, avatar, target);
+        emit TellorModuleSetup(msg.sender, _owner, avatar, target, quorumVotes);
     }
 
     /// @notice This can only be called by the owner
@@ -138,10 +119,12 @@ contract RealityModule is Module, UsingTellor {
         questionTimeout = timeout;
     }
 
-    /// @dev Sets the cooldown before an answer is usable.
-    /// @param cooldown Cooldown in seconds that should be required after a oracle provided answer
-    /// @notice This can only be called by the owner
-    /// @notice There need to be at least 60 seconds between end of cooldown and expiration
+    /**
+     * @dev Sets the cooldown before an answer is usable.
+     * @param cooldown Cooldown in seconds that should be required after a oracle provided answer
+     * @notice This can only be called by the owner
+     * @notice There need to be at least 60 seconds between end of cooldown and expiration
+     */
     function setQuestionCooldown(uint32 cooldown) public onlyOwner {
         uint32 expiration = answerExpiration;
         require(
@@ -151,11 +134,13 @@ contract RealityModule is Module, UsingTellor {
         questionCooldown = cooldown;
     }
 
-    /// @dev Sets the duration for which a positive answer is valid.
-    /// @param expiration Duration that a positive answer of the oracle is valid in seconds (or 0 if valid forever)
-    /// @notice A proposal with an expired answer is the same as a proposal that has been marked invalid
-    /// @notice There need to be at least 60 seconds between end of cooldown and expiration
-    /// @notice This can only be called by the owner
+    /**
+     * @dev Sets the duration for which a positive answer is valid.
+     * @param expiration Duration that a positive answer of the oracle is valid in seconds (or 0 if valid forever)
+     * @notice A proposal with an expired answer is the same as a proposal that has been marked invalid
+     * @notice There need to be at least 60 seconds between end of cooldown and expiration
+     * @notice This can only be called by the owner
+     */
     function setAnswerExpiration(uint32 expiration) public onlyOwner {
         require(
             expiration == 0 || expiration - questionCooldown >= 60,
@@ -164,42 +149,24 @@ contract RealityModule is Module, UsingTellor {
         answerExpiration = expiration;
     }
 
-    /// @dev Sets the question arbitrator that will be used for future questions.
-    /// @param arbitrator Address of the arbitrator
-    /// @notice This can only be called by the owner
-    // function setArbitrator(address arbitrator) public onlyOwner {
-    //     questionArbitrator = arbitrator;
-    // }
-
-    /// @dev Sets the minimum bond that is required for an answer to be accepted.
-    /// @param bond Minimum bond that is required for an answer to be accepted
-    /// @notice This can only be called by the owner
-    // function setMinimumBond(uint256 bond) public onlyOwner {
-    //     minimumBond = bond;
-    // }
-
-    /// @dev Sets the template that should be used for future questions.
-    /// @param templateId ID of the template that should be used for proposal questions
-    /// @notice Check https://github.com/realitio/realitio-dapp#structuring-and-fetching-information for more information
-    /// @notice This can only be called by the owner
-    // function setTemplate(uint256 templateId) public onlyOwner {
-    //     template = templateId;
-    // }
-
-    /// @dev Function to add a proposal that should be considered for execution
-    /// @param proposalId Id that should identify the proposal uniquely
-    /// @param txHashes EIP-712 hashes of the transactions that should be executed
-    /// @notice The nonce used for the question by this function is always 0
+    /**
+     * @dev Function to add a proposal that should be considered for execution
+     * @param proposalId Id that should identify the proposal uniquely
+     * @param txHashes EIP-712 hashes of the transactions that should be executed
+     * @notice The nonce used for the question by this function is always 0
+     */
     function addProposal(string memory proposalId, bytes32[] memory txHashes)
         public
     {
         addProposalWithNonce(proposalId, txHashes, 0);
     }
 
-    /// @dev Function to add a proposal that should be considered for execution
-    /// @param proposalId Id that should identify the proposal uniquely
-    /// @param txHashes EIP-712 hashes of the transactions that should be executed
-    /// @param nonce Nonce that should be used when asking the question on the oracle
+    /**
+     * @dev Function to add a proposal that should be considered for execution
+     * @param proposalId Id that should identify the proposal uniquely
+     * @param txHashes EIP-712 hashes of the transactions that should be executed
+     * @param nonce Nonce that should be used when asking the question on the oracle
+     */
     function addProposalWithNonce(
         string memory proposalId,
         bytes32[] memory txHashes,
@@ -227,23 +194,18 @@ contract RealityModule is Module, UsingTellor {
                 "Proposal has already been submitted"
             );
         }
-        bytes32 expectedQuestionId = getQuestionId(proposalId);
+        bytes32 questionId = getQuestionId(proposalId);
         // Set the question hash for this question id
-        questionIds[questionHash] = expectedQuestionId;
-        // bytes32 questionId = askQuestion(question, nonce);
-        // require(expectedQuestionId == questionId, "Unexpected question id");
-        emit ProposalQuestionCreated(expectedQuestionId, proposalId);
+        questionIds[questionHash] = questionId;
+        emit ProposalQuestionCreated(questionId, proposalId);
     }
 
-    // function askQuestion(string memory question, uint256 nonce)
-    //     internal
-    //     virtual
-    //     returns (bytes32);
-
-    /// @dev Marks a proposal as invalid, preventing execution of the connected transactions
-    /// @param proposalId Id that should identify the proposal uniquely
-    /// @param txHashes EIP-712 hashes of the transactions that should be executed
-    /// @notice This can only be called by the owner
+    /**
+     * @dev Marks a proposal as invalid, preventing execution of the connected transactions
+     * @param proposalId Id that should identify the proposal uniquely
+     * @param txHashes EIP-712 hashes of the transactions that should be executed
+     * @notice This can only be called by the owner
+     */
     function markProposalAsInvalid(
         string memory proposalId,
         bytes32[] memory txHashes // owner only is checked in markProposalAsInvalidByHash(bytes32)
@@ -253,9 +215,11 @@ contract RealityModule is Module, UsingTellor {
         markProposalAsInvalidByHash(questionHash);
     }
 
-    /// @dev Marks a question hash as invalid, preventing execution of the connected transactions
-    /// @param questionHash Question hash calculated based on the proposal id and txHashes
-    /// @notice This can only be called by the owner
+    /**
+     * @dev @dev Marks a question hash as invalid, preventing execution of the connected transactions
+     * @param questionHash Question hash calculated based on the proposal id and txHashes
+     * @notice This can only be called by the owner
+     */
     function markProposalAsInvalidByHash(bytes32 questionHash)
         public
         onlyOwner
@@ -263,8 +227,10 @@ contract RealityModule is Module, UsingTellor {
         questionIds[questionHash] = INVALIDATED;
     }
 
-    /// @dev Marks a proposal with an expired answer as invalid, preventing execution of the connected transactions
-    /// @param questionHash Question hash calculated based on the proposal id and txHashes
+    /**
+     * @dev Marks a proposal with an expired answer as invalid, preventing execution of the connected transactions
+     * @param questionHash Question hash calculated based on the proposal id and txHashes
+     */
     function markProposalWithExpiredAnswerAsInvalid(bytes32 questionHash)
         public
     {
@@ -276,32 +242,26 @@ contract RealityModule is Module, UsingTellor {
             questionId != bytes32(0),
             "No question id set for provided proposal"
         );
-        (bool _ifRetrieve, bytes memory _value, ) = getDataBefore(
+        (bool _ifRetrieve, , ) = getDataBefore(
             questionId,
             block.timestamp - questionCooldown
         );
 
         require(_ifRetrieve, "Data not retrieved");
 
-        uint256[] memory values = abi.decode(_value, (uint256[]));
-        require(values[0] > values[1], "Transaction was not approved");
-
-        // uint256 finalizeTs = getTimestampbyQueryIdandIndex(questionId, getNewValueCountbyQueryId(questionId)-1);
-        // require(
-        //     finalizeTs + uint256(expirationDuration) < block.timestamp,
-        //     "Answer has not expired yet"
-        // );
         questionIds[questionHash] = INVALIDATED;
     }
 
-    /// @dev Executes the transactions of a proposal via the target if accepted
-    /// @param proposalId Id that should identify the proposal uniquely
-    /// @param txHashes EIP-712 hashes of the transactions that should be executed
-    /// @param to Target of the transaction that should be executed
-    /// @param value Wei value of the transaction that should be executed
-    /// @param data Data of the transaction that should be executed
-    /// @param operation Operation (Call or Delegatecall) of the transaction that should be executed
-    /// @notice The txIndex used by this function is always 0
+    /**
+     * @dev Executes the transactions of a proposal via the target if accepted
+     * @param proposalId Id that should identify the proposal uniquely
+     * @param txHashes EIP-712 hashes of the transactions that should be executed
+     * @param to Target of the transaction that should be executed
+     * @param value Wei value of the transaction that should be executed
+     * @param data Data of the transaction that should be executed
+     * @param operation Operation (Call or Delegatecall) of the transaction that should be executed
+     * @notice The txIndex used by this function is always 0
+     */
     function executeProposal(
         string memory proposalId,
         bytes32[] memory txHashes,
@@ -321,14 +281,16 @@ contract RealityModule is Module, UsingTellor {
         );
     }
 
-    /// @dev Executes the transactions of a proposal via the target if accepted
-    /// @param proposalId Id that should identify the proposal uniquely
-    /// @param txHashes EIP-712 hashes of the transactions that should be executed
-    /// @param to Target of the transaction that should be executed
-    /// @param value Wei value of the transaction that should be executed
-    /// @param data Data of the transaction that should be executed
-    /// @param operation Operation (Call or Delegatecall) of the transaction that should be executed
-    /// @param txIndex Index of the transaction hash in txHashes. This is used as the nonce for the transaction, to make the tx hash unique
+    /**
+     * @dev Executes the transactions of a proposal via the target if accepted
+     * @param proposalId Id that should identify the proposal uniquely
+     * @param txHashes EIP-712 hashes of the transactions that should be executed
+     * @param to Target of the transaction that should be executed
+     * @param value Wei value of the transaction that should be executed
+     * @param data Data of the transaction that should be executed
+     * @param operation Operation (Call or Delegatecall) of the transaction that should be executed
+     * @param txIndex Index of the transaction hash in txHashes. This is used as the nonce for the transaction, to make the tx hash unique
+     */
     function executeProposalWithIndex(
         string memory proposalId,
         bytes32[] memory txHashes,
@@ -378,28 +340,12 @@ contract RealityModule is Module, UsingTellor {
         );
 
         uint256[] memory values = abi.decode(_value, (uint256[]));
-        require(values[0] > values[1], "Transaction was not approved");
+        require((values[0] + values[1]) >= quorumVotes, "Not enough votes");
 
-        // Check that the result of the question is 1 (true)
-        // require(
-        //     oracle.resultFor(questionId) == bytes32(uint256(1)),
-        //     "Transaction was not approved"
-        // );
+        require(values[0] > values[1], "Transaction was not approved");
 
         require(_ifRetrieve, "Data not retrieved");
 
-        // uint256 minBond = minimumBond;
-        // require(
-        //     minBond == 0
-        //     || minBond <= oracle.getBond(questionId),
-        //     "Bond on question not high enough"
-        // );
-        // uint256 finalizeTs = getTimestampbyQueryIdandIndex(questionId, getNewValueCountbyQueryId(questionId)-1);
-        // // The answer is valid in the time after the cooldown and before the expiration time (if set).
-        // require(
-        //     finalizeTs + uint256(questionCooldown) < block.timestamp,
-        //     "Wait for additional cooldown"
-        // );
         uint32 expiration = answerExpiration;
         require(
             expiration == 0 ||
@@ -427,9 +373,11 @@ contract RealityModule is Module, UsingTellor {
         require(exec(to, value, data, operation), "Module transaction failed");
     }
 
-    /// @dev Build the question by combining the proposalId and the hex string of the hash of the txHashes
-    /// @param proposalId Id of the proposal that proposes to execute the transactions represented by the txHashes
-    /// @param txHashes EIP-712 Hashes of the transactions that should be executed
+    /**
+     * @dev Build the question by combining the proposalId and the hex string of the hash of the txHashes
+     * @param proposalId Id of the proposal that proposes to execute the transactions represented by the txHashes
+     * @param txHashes EIP-712 Hashes of the transactions that should be executed
+     */
     function buildQuestion(string memory proposalId, bytes32[] memory txHashes)
         public
         pure
@@ -441,32 +389,10 @@ contract RealityModule is Module, UsingTellor {
         return string(abi.encodePacked(proposalId, bytes3(0xe2909f), txsHash));
     }
 
-    /// @dev Generate the question id.
-    /// @notice It is required that this is the same as for the oracle implementation used.
-    // function getQuestionId(string memory question, uint256 nonce)
-    //     public
-    //     view
-    //     returns (bytes32)
-    // {
-    //     // Ask the question with a starting time of 0, so that it can be immediately answered
-    //     bytes32 contentHash = keccak256(
-    //         abi.encodePacked(template, uint32(0), question)
-    //     );
-    //     return
-    //         keccak256(
-    //             abi.encodePacked(
-    //                 contentHash,
-    //                 questionArbitrator,
-    //                 questionTimeout,
-    //                 minimumBond,
-    //                 oracle,
-    //                 this,
-    //                 nonce
-    //             )
-    //         );
-    // }
-    /// @dev Generate the question id.
-    /// @notice It is required that this is the same as for the oracle implementation used.
+    /**
+     * @dev Generate the question id.
+     * @notice It is required that this is the same as for the oracle implementation used.
+     */
     function getQuestionId(string memory _proposalId)
         public
         pure
