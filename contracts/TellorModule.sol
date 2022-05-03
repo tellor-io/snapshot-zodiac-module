@@ -158,42 +158,13 @@ contract TellorModule is Module, UsingTellor {
     function addProposal(string memory proposalId, bytes32[] memory txHashes)
         public
     {
-        addProposalWithNonce(proposalId, txHashes, 0);
-    }
-
-    /**
-     * @dev Function to add a proposal that should be considered for execution
-     * @param proposalId Id that should identify the proposal uniquely
-     * @param txHashes EIP-712 hashes of the transactions that should be executed
-     * @param nonce Nonce that should be used when asking the question on the oracle
-     */
-    function addProposalWithNonce(
-        string memory proposalId,
-        bytes32[] memory txHashes,
-        uint256 nonce
-    ) internal {
-        // We generate the question string used for the oracle
         string memory question = buildQuestion(proposalId, txHashes);
         bytes32 questionHash = keccak256(bytes(question));
-        if (nonce > 0) {
-            // Previous nonce must have been invalidated by the oracle.
-            // However, if the proposal was internally invalidated, it should not be possible to ask it again.
-            bytes32 currentQuestionId = questionIds[questionHash];
-            (bool _ifRetrieve, , ) = getDataBefore(
-                currentQuestionId,
-                block.timestamp - questionCooldown
-            );
-            require(
-                currentQuestionId != INVALIDATED,
-                "This proposal has been marked as invalid"
-            );
-            require(_ifRetrieve, "Data not retrieved");
-        } else {
-            require(
-                questionIds[questionHash] == bytes32(0),
-                "Proposal has already been submitted"
-            );
-        }
+
+        require(
+            questionIds[questionHash] == bytes32(0),
+            "Proposal has already been submitted"
+        );
         bytes32 questionId = getQuestionId(proposalId);
         // Set the question hash for this question id
         questionIds[questionHash] = questionId;
