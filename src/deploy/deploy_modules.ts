@@ -15,7 +15,7 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     1,
     0,
     60,
-    0
+    0,
   ];
 
   await deploy("TellorModule", {

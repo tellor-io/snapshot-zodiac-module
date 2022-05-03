@@ -53,12 +53,6 @@ export default {
     ]
   },
   networks: {
-     hardhat: {
-      // throwOnTransactionFailures: true,
-      // throwOnCallFailures: true,
-      // allowUnlimitedContractSize: true,
-      // blockGasLimit: 0x1fffffffffffff,
-    },
     mainnet: {
       ...sharedNetworkConfig,
       url: `https://mainnet.infura.io/v3/${INFURA_KEY}`,

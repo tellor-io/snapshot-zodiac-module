@@ -43,8 +43,6 @@ describe("Module works with factory", () => {
       0,
       60,
       0,
-      // 0,
-      // ZERO_ADDRESS
     );
 
     return { factory, masterCopy };
@@ -62,9 +60,6 @@ describe("Module works with factory", () => {
       cooldown,
       expiration,
       quorumVotes,
-      // bond,
-      // templateId,
-      // oracle.address,
     ]);
 
     await expect(masterCopy.setUp(encodedParams)).to.be.revertedWith(
@@ -83,9 +78,6 @@ describe("Module works with factory", () => {
       cooldown,
       expiration,
       quorumVotes,
-      // bond,
-      // templateId,
-      // oracle.address,
     ];
     const encodedParams = [new AbiCoder().encode(paramsTypes, paramsValues)];
     const initParams = masterCopy.interface.encodeFunctionData(
