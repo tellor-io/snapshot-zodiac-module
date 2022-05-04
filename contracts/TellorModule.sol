@@ -31,12 +31,10 @@ contract TellorModule is Module, UsingTellor {
         address indexed initiator,
         address indexed owner,
         address indexed avatar,
-        address target,
-        uint256 quorumVotes
+        address target
     );
 
     // Storage
-    uint256 public quorumVotes;
     uint32 public questionTimeout;
     uint32 public questionCooldown;
     uint32 public answerExpiration;
@@ -65,8 +63,7 @@ contract TellorModule is Module, UsingTellor {
         address payable _tellorAddress,
         uint32 timeout,
         uint32 cooldown,
-        uint32 expiration,
-        uint256 _quorumVotes
+        uint32 expiration
     ) UsingTellor(_tellorAddress) {
         bytes memory initParams = abi.encode(
             _owner,
@@ -74,8 +71,7 @@ contract TellorModule is Module, UsingTellor {
             _target,
             timeout,
             cooldown,
-            expiration,
-            _quorumVotes
+            expiration
         );
         setUp(initParams);
     }
@@ -87,11 +83,10 @@ contract TellorModule is Module, UsingTellor {
             address _target,
             uint32 timeout,
             uint32 cooldown,
-            uint32 expiration,
-            uint256 _quorumVotes
+            uint32 expiration
         ) = abi.decode(
                 initParams,
-                (address, address, address, uint32, uint32, uint32, uint256)
+                (address, address, address, uint32, uint32, uint32)
             );
         __Ownable_init();
         require(_avatar != address(0), "Avatar can not be zero address");
@@ -103,14 +98,13 @@ contract TellorModule is Module, UsingTellor {
         );
         avatar = _avatar;
         target = _target;
-        quorumVotes = _quorumVotes;
         answerExpiration = expiration;
         questionTimeout = timeout;
         questionCooldown = cooldown;
 
         transferOwnership(_owner);
 
-        emit TellorModuleSetup(msg.sender, _owner, avatar, target, quorumVotes);
+        emit TellorModuleSetup(msg.sender, _owner, avatar, target);
     }
 
     /// @notice This can only be called by the owner
@@ -149,28 +143,50 @@ contract TellorModule is Module, UsingTellor {
         answerExpiration = expiration;
     }
 
+     function addProposal(string memory proposalId, bytes32[] memory txHashes)
+        public
+    {
+        addProposalWithNonce(proposalId, txHashes, 0);
+    }
+
     /**
      * @dev Function to add a proposal that should be considered for execution
      * @param proposalId Id that should identify the proposal uniquely
      * @param txHashes EIP-712 hashes of the transactions that should be executed
-     * @notice The nonce used for the question by this function is always 0
+     * @param nonce Nonce that should be used when asking the question on the oracle
      */
-    function addProposal(string memory proposalId, bytes32[] memory txHashes)
-        public
-    {
+    function addProposalWithNonce(
+        string memory proposalId,
+        bytes32[] memory txHashes,
+        uint256 nonce
+    ) internal {
+        // We generate the question string used for the oracle
         string memory question = buildQuestion(proposalId, txHashes);
         bytes32 questionHash = keccak256(bytes(question));
-
-        require(
-            questionIds[questionHash] == bytes32(0),
-            "Proposal has already been submitted"
-        );
+        if (nonce > 0) {
+            // Previous nonce must have been invalidated by the oracle.
+            // However, if the proposal was internally invalidated, it should not be possible to ask it again.
+            bytes32 currentQuestionId = questionIds[questionHash];
+            (bool _ifRetrieve, , ) = getDataBefore(
+                currentQuestionId,
+                block.timestamp - questionCooldown
+            );
+            require(
+                currentQuestionId != INVALIDATED,
+                "This proposal has been marked as invalid"
+            );
+            require(_ifRetrieve, "Data not retrieved");
+        } else {
+            require(
+                questionIds[questionHash] == bytes32(0),
+                "Proposal has already been submitted"
+            );
+        }
         bytes32 questionId = getQuestionId(proposalId);
         // Set the question hash for this question id
         questionIds[questionHash] = questionId;
         emit ProposalQuestionCreated(questionId, proposalId);
     }
-
     /**
      * @dev Marks a proposal as invalid, preventing execution of the connected transactions
      * @param proposalId Id that should identify the proposal uniquely
@@ -292,6 +308,7 @@ contract TellorModule is Module, UsingTellor {
             operation,
             txIndex
         );
+
         require(txHashes[txIndex] == txHash, "Unexpected transaction hash");
 
         uint256 finalizeTs = getTimestampbyQueryIdandIndex(
@@ -311,7 +328,6 @@ contract TellorModule is Module, UsingTellor {
         );
 
         uint256[] memory values = abi.decode(_value, (uint256[]));
-        require((values[0] + values[1]) >= quorumVotes, "Not enough votes");
 
         require(values[0] > values[1], "Transaction was not approved");
 

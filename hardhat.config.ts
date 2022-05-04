@@ -60,6 +60,8 @@ export default {
     rinkeby: {
       ...sharedNetworkConfig,
       url: `https://rinkeby.infura.io/v3/${INFURA_KEY}`,
+      gas: 10000000 ,
+      gasPrice: 40000000000
     },
     xdai: {
       ...sharedNetworkConfig,

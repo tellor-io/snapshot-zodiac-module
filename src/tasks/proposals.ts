@@ -3,6 +3,9 @@ import "@nomiclabs/hardhat-ethers";
 import { Contract } from "ethers";
 import { task, types } from "hardhat/config";
 import { readFileSync } from "fs";
+import dotenv from "dotenv";
+
+dotenv.config()
 
 interface Proposal {
     id: string,
@@ -34,16 +37,31 @@ const getProposalDetails = async (module: Contract, path: string): Promise<Exten
 
 task("addProposal", "Adds a proposal question")
         .addParam("module", "Address of the module", undefined, types.string)
-        .addParam("proposalFile", "File with proposal information json", undefined, types.inputFile)
+        // .addParam("proposalFile", "File with proposal information json", undefined, types.inputFile)
         .setAction(async (taskArgs, hardhatRuntime) => {
             const ethers = hardhatRuntime.ethers;
-            const Module = await ethers.getContractFactory("RealityModule");
+            const Module = await ethers.getContractFactory("TellorModule");
             const module = await Module.attach(taskArgs.module);
 
-            const proposal = await getProposalDetails(module, taskArgs.proposalFile);
-
-            const tx = await module.addProposal(proposal.id, proposal.txsHashes);
-            console.log("Transaction:", tx.hash);
+            // const proposal = await getProposalDetails(module, taskArgs.proposalFile);
+            const id = 1;
+            const tx = {
+              to: process.env.ADDRESS,
+              value: 1 * 10 ** 18, //1 eth
+              data:"0x",
+            //   "0xbaddad",
+              operation: 0,
+              nonce: 0,
+            };
+            const txHash = await module.getTransactionHash(
+              tx.to,
+              tx.value,
+              tx.data,
+              tx.operation,
+              tx.nonce
+            );
+            const tx1 = await module.addProposal(id, [txHash]);
+            console.log("Transaction:", tx1.hash);
         });
 
 task("showProposal", "Shows proposal question details")
@@ -51,7 +69,7 @@ task("showProposal", "Shows proposal question details")
         .addParam("proposalFile", "File with proposal information json", undefined, types.inputFile)
         .setAction(async (taskArgs, hardhatRuntime) => {
             const ethers = hardhatRuntime.ethers;
-            const Module = await ethers.getContractFactory("RealityModule");
+            const Module = await ethers.getContractFactory("TellorModule");
             const module = await Module.attach(taskArgs.module);
 
             const proposal = await getProposalDetails(module, taskArgs.proposalFile);
@@ -68,21 +86,40 @@ task("showProposal", "Shows proposal question details")
 
 task("executeProposal", "Executes a proposal")
         .addParam("module", "Address of the module", undefined, types.string)
-        .addParam("proposalFile", "File with proposal information json", undefined, types.inputFile)
+        // .addParam("proposalFile", "File with proposal information json", undefined, types.inputFile)
         .setAction(async (taskArgs, hardhatRuntime) => {
             const ethers = hardhatRuntime.ethers;
-            const Module = await ethers.getContractFactory("RealityModule");
+            const Module = await ethers.getContractFactory("TellorModule");
             const module = await Module.attach(taskArgs.module);
 
-            const proposal = await getProposalDetails(module, taskArgs.proposalFile);
+            // const proposal = await getProposalDetails(module, taskArgs.proposalFile);
 
-            for (const index in proposal.txs) {
-                const moduleTx = proposal.txs[index]
-                const tx = await module.executeProposalWithIndex(
-                    proposal.id, proposal.txsHashes, moduleTx.to, moduleTx.value, moduleTx.data, moduleTx.operation, index
-                );
-                console.log("Transaction:", tx.hash);
-            }
+            // for (const index in proposal.txs) {
+            //     const moduleTx = proposal.txs[index]
+            //     const tx = await module.executeProposalWithIndex(
+            //         proposal.id, proposal.txsHashes, moduleTx.to, moduleTx.value, moduleTx.data, moduleTx.operation, index
+            //     );
+            // }
+
+            const id = 1;
+            const tx = {
+              to: process.env.ADDRESS,
+              value: 0,
+              data: "0xbaddad",
+              operation: 0,
+              nonce: 0,
+            };
+            const txHash = await module.getTransactionHash(
+              tx.to,
+              tx.value,
+              tx.data,
+              tx.operation,
+              tx.nonce
+            );
+            const tx1 = await module.executeProposalWithIndex(
+                        id, [txHash], tx.to, tx.value, tx.data,tx.operation,0
+                    );
+                console.log("Transaction:", tx1.hash);
         });
 
 export { };

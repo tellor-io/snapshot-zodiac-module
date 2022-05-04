@@ -69,7 +69,6 @@ describe("TellorModuleERC20", async () => {
       42,
       23,
       0,
-      0,
     );
     return { ...base, Module, module };
   });
@@ -85,7 +84,6 @@ describe("TellorModuleERC20", async () => {
       42,
       23,
       0,
-      1000,
     );
     return { ...base, Module, module };
   });
@@ -103,7 +101,6 @@ describe("TellorModuleERC20", async () => {
         42,
         23,
         0,
-        0
       );
       await expect(
         module.setUp(buildMockInitializerParams(mock))
@@ -121,7 +118,6 @@ describe("TellorModuleERC20", async () => {
           42,
           23,
           0,
-          0,
         )
       ).to.be.revertedWith("Avatar can not be zero address");
     });
@@ -137,7 +133,6 @@ describe("TellorModuleERC20", async () => {
           42,
           23,
           0,
-          0,
         )
       ).to.be.revertedWith("Target can not be zero address");
     });
@@ -150,7 +145,6 @@ describe("TellorModuleERC20", async () => {
           user1.address,
           user1.address,
           user1.address,
-          0,
           0,
           0,
           0,
@@ -169,7 +163,6 @@ describe("TellorModuleERC20", async () => {
           1,
           0,
           59,
-          0,
         )
       ).to.be.revertedWith(
         "There need to be at least 60s between end of cooldown and expiration"
@@ -186,7 +179,6 @@ describe("TellorModuleERC20", async () => {
         1,
         10,
         0,
-        0,
       );
     });
 
@@ -200,12 +192,11 @@ describe("TellorModuleERC20", async () => {
         1,
         10,
         0,
-        0,
       );
       await module.deployed();
       await expect(module.deployTransaction)
         .to.emit(module, "TellorModuleSetup")
-        .withArgs(user1.address, user1.address, user1.address, user1.address, 0);
+        .withArgs(user1.address, user1.address, user1.address, user1.address);
     });
   });
 
@@ -2435,74 +2426,6 @@ describe("TellorModuleERC20", async () => {
       );
     });
 
-    it("throws if quorum was not reached", async () => {
-      const { mock, module, oracle, avatar } = await setupTestWithMockAvatar();
-  
-      const id = "some_random_id";
-      const tx = {
-        to: user1.address,
-        value: 0,
-        data: "0xbaddad",
-        operation: 0,
-        nonce: 0,
-      };
-      const txHash = await module.getTransactionHash(
-        tx.to,
-        tx.value,
-        tx.data,
-        tx.operation,
-        tx.nonce
-      );
-      const questionId = await module.getQuestionId(id);
-  
-      await mock.givenMethodReturnUint(
-        module.interface.getSighash("getQuestionId"),
-        questionId
-      );
-  
-      //submit to the oracle first
-      const queryDataArgs = abiCoder.encode(["string"], [id]);
-      const queryData = abiCoder.encode(
-        ["string", "bytes"],
-        ["Snapshot", queryDataArgs]
-      );
-      const queryId = ethers.utils.keccak256(queryData);
-  
-      await oracle.submitValue(
-        queryId,
-        abiCoder.encode(["uint256[]"], [[800, 100]]),
-        0,
-        queryData
-      );
-  
-      await module.addProposal(id, [txHash]);
-      const block = await ethers.provider.getBlock("latest");
-      await mock.givenMethodReturnBool(
-        module.interface.getSighash("getDataBefore"),
-        true
-      );
-      await mock.givenMethodReturnUint(
-        oracle.interface.getSighash("getTimestampbyQueryIdandIndex"),
-        block.timestamp
-      );
-      await mock.givenMethodReturnBool(
-        avatar.interface.getSighash("execTransactionFromModule"),
-        true
-      );
-      await h.advanceTime(24);
-  
-      await expect(
-        module.executeProposal(
-          id,
-          [txHash],
-          tx.to,
-          tx.value,
-          tx.data,
-          tx.operation
-        )
-      ).to.be.revertedWith("Not enough votes");
-    });
-
     it("allows to send same tx (with different nonce) multiple times in proposal", async () => {
       const { avatar, mock, module, oracle } = await setupTestWithMockAvatar();
 
@@ -2514,6 +2437,7 @@ describe("TellorModuleERC20", async () => {
         operation: 0,
         nonce: 0,
       };
+      console.log("address: "+user1.address)
       const tx1Hash = await module.getTransactionHash(
         tx1.to,
         tx1.value,
@@ -2529,6 +2453,8 @@ describe("TellorModuleERC20", async () => {
         tx2.operation,
         tx2.nonce
       );
+
+      console.log("hash: "+tx1Hash)
       expect(tx1Hash).to.be.not.equals(tx2Hash);
 
       const question = await module.buildQuestion(id, [tx1Hash, tx2Hash]);

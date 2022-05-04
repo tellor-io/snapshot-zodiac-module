@@ -14,7 +14,6 @@ interface TellorTaskArgs {
   cooldown: string;
   expiration: string;
   proxied: boolean;
-  quorumvotes: number;
 }
 
 const deployTellorModule = async (
@@ -38,7 +37,6 @@ const deployTellorModule = async (
           "uint32",
           "uint32",
           "uint32",
-          "uint256",
         ],
         values: [
           taskArgs.owner,
@@ -48,7 +46,6 @@ const deployTellorModule = async (
           taskArgs.timeout,
           taskArgs.cooldown,
           taskArgs.expiration,
-          taskArgs.quorumvotes,
         ],
       },
       hardhatRuntime.ethers.provider,
@@ -71,7 +68,6 @@ const deployTellorModule = async (
     taskArgs.timeout,
     taskArgs.cooldown,
     taskArgs.expiration,
-    taskArgs.quorumvotes
   );
   await module.deployTransaction.wait();
   console.log("Module deployed to:", module.address);
@@ -111,13 +107,6 @@ task("setup", "Provides the clearing price to an auction")
     "expiration",
     "Time duration in seconds for which a positive answer is valid. After this time the answer is expired",
     7 * 24 * 3600,
-    types.int,
-    true
-  )
-  .addParam(
-    "quorumvotes",
-    "The number of votes required for a positive answer",
-    500,
     types.int,
     true
   )
@@ -185,7 +174,6 @@ task("verifyEtherscan", "Verifies the contract on etherscan")
           `${taskArgs.timeout}`,
           `${taskArgs.cooldown}`,
           `${taskArgs.expiration}`,
-          taskArgs.quorumvotes,
         ],
       });
     }

@@ -12,9 +12,6 @@ describe("Module works with factory", () => {
   const timeout = 60;
   const cooldown = 60;
   const expiration = 120;
-  const quorumVotes = 0
-  // const bond = BigNumber.from(10000);
-  // const templateId = BigNumber.from(1);
 
   const paramsTypes = [
     "address",
@@ -23,9 +20,6 @@ describe("Module works with factory", () => {
     "uint32",
     "uint32",
     "uint32",
-    "uint256",
-    // "uint256",
-    // "address",
   ];
 
   const baseSetup = deployments.createFixture(async () => {
@@ -42,7 +36,6 @@ describe("Module works with factory", () => {
       1,
       0,
       60,
-      0,
     );
 
     return { factory, masterCopy };
@@ -59,7 +52,6 @@ describe("Module works with factory", () => {
       timeout,
       cooldown,
       expiration,
-      quorumVotes,
     ]);
 
     await expect(masterCopy.setUp(encodedParams)).to.be.revertedWith(
@@ -77,7 +69,6 @@ describe("Module works with factory", () => {
       timeout,
       cooldown,
       expiration,
-      quorumVotes,
     ];
     const encodedParams = [new AbiCoder().encode(paramsTypes, paramsValues)];
     const initParams = masterCopy.interface.encodeFunctionData(
@@ -102,8 +93,5 @@ describe("Module works with factory", () => {
     expect(await newProxy.questionTimeout()).to.be.eq(timeout);
     expect(await newProxy.questionCooldown()).to.be.eq(cooldown);
     expect(await newProxy.answerExpiration()).to.be.eq(expiration);
-    expect(await newProxy.quorumVotes()).to.be.eq(quorumVotes);
-    // expect(await newProxy.minimumBond()).to.be.eq(BigNumber.from(bond));
-    // expect(await newProxy.template()).to.be.eq(BigNumber.from(templateId));
   });
 });
