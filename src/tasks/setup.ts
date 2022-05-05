@@ -89,7 +89,7 @@ const deployTellorModule = async (
   // Wait for few confirmed transactions.
   // Otherwise the etherscan api doesn't find the deployed contract.
   console.log("waiting for tx confirmation...");
-  await module.deployTransaction.wait(5);
+  await module.deployTransaction.wait(10);
 
   console.log("submitting contract for verification...");
 
