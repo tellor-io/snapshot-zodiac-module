@@ -15,7 +15,6 @@ interface TellorTaskArgs {
   owner: string;
   avatar: string;
   target: string;
-  timeout: string;
   cooldown: string;
   expiration: string;
   proxied: boolean;
@@ -50,14 +49,12 @@ const deployTellorModule = async (
           "address",
           "uint32",
           "uint32",
-          "uint32",
         ],
         values: [
           taskArgs.owner,
           taskArgs.avatar,
           taskArgs.target,
           tellorOracle.address,
-          taskArgs.timeout,
           taskArgs.cooldown,
           taskArgs.expiration,
         ],
@@ -79,7 +76,6 @@ const deployTellorModule = async (
     taskArgs.avatar,
     taskArgs.target,
     tellorOracle.address,
-    taskArgs.timeout,
     taskArgs.cooldown,
     taskArgs.expiration
   );
@@ -101,7 +97,6 @@ const deployTellorModule = async (
       taskArgs.avatar,
       taskArgs.target,
       tellorOracle.address,
-      `${taskArgs.timeout}`,
       `${taskArgs.cooldown}`,
       `${taskArgs.expiration}`,
     ],
@@ -118,19 +113,6 @@ task("setup", "Provides the clearing price to an auction")
     types.string
   )
   .addParam("target", "Address of the target", undefined, types.string)
-  // .addParam(
-  //   "oracle",
-  //   "Address of the oracle (e.g. Realitio)",
-  //   undefined,
-  //   types.string
-  // )
-  .addParam(
-    "timeout",
-    "Timeout in seconds that should be required for the oracle",
-    48 * 3600,
-    types.int,
-    true
-  )
   .addParam(
     "cooldown",
     "Cooldown in seconds that should be required after a oracle provided answer",
@@ -164,25 +146,6 @@ task("verifyEtherscan", "Verifies the contract on etherscan")
     types.string
   )
   .addParam("target", "Address of the target", undefined, types.string)
-  // .addParam(
-  //   "oracle",
-  //   "Address of the oracle (e.g. Realitio)",
-  //   undefined,
-  //   types.string
-  // )
-  // .addParam(
-  //   "template",
-  //   "Template that should be used for proposal questions (See https://github.com/realitio/realitio-dapp#structuring-and-fetching-information)",
-  //   undefined,
-  //   types.string
-  // )
-  .addParam(
-    "timeout",
-    "Timeout in seconds that should be required for the oracle",
-    48 * 3600,
-    types.int,
-    true
-  )
   .addParam(
     "cooldown",
     "Cooldown in seconds that should be required after a oracle provided answer",
@@ -206,8 +169,6 @@ task("verifyEtherscan", "Verifies the contract on etherscan")
           taskArgs.avatar,
           taskArgs.target,
           tellorOracle.address,
-          // taskArgs.oracle,
-          `${taskArgs.timeout}`,
           `${taskArgs.cooldown}`,
           `${taskArgs.expiration}`,
         ],

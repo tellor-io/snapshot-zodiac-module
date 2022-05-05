@@ -9,7 +9,6 @@ const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const saltNonce = "0xfa";
 
 describe("Module works with factory", () => {
-  const timeout = 60;
   const cooldown = 60;
   const expiration = 120;
 
@@ -17,7 +16,6 @@ describe("Module works with factory", () => {
     "address",
     "address",
     "address",
-    "uint32",
     "uint32",
     "uint32",
   ];
@@ -33,7 +31,6 @@ describe("Module works with factory", () => {
       FIRST_ADDRESS,
       FIRST_ADDRESS,
       ZERO_ADDRESS,
-      1,
       0,
       60,
     );
@@ -49,7 +46,6 @@ describe("Module works with factory", () => {
       safe.address,
       safe.address,
       safe.address,
-      timeout,
       cooldown,
       expiration,
     ]);
@@ -66,7 +62,6 @@ describe("Module works with factory", () => {
       safe.address,
       safe.address,
       safe.address,
-      timeout,
       cooldown,
       expiration,
     ];
@@ -90,7 +85,6 @@ describe("Module works with factory", () => {
       "TellorModule",
       newProxyAddress
     );
-    expect(await newProxy.questionTimeout()).to.be.eq(timeout);
     expect(await newProxy.questionCooldown()).to.be.eq(cooldown);
     expect(await newProxy.answerExpiration()).to.be.eq(expiration);
   });

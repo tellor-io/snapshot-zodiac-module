@@ -34,7 +34,6 @@ contract TellorModule is Module, UsingTellor {
     );
 
     // Storage
-    uint32 public questionTimeout;
     uint32 public questionCooldown;
     uint32 public answerExpiration;
 
@@ -50,7 +49,6 @@ contract TellorModule is Module, UsingTellor {
      * @param _avatar Address of the avatar (e.g. a Safe)
      * @param _target Address of the contract that will call exec function
      * @param _tellorAddress Address of the Tellor oracle contract
-     * @param timeout Timeout in seconds that should be required for the oracle
      * @param cooldown Cooldown in seconds that should be required after a oracle provided answer
      * @param expiration Duration that a positive answer of the oracle is valid in seconds (or 0 if valid forever)
      * @notice There need to be at least 60 seconds between end of cooldown and expiration
@@ -60,7 +58,6 @@ contract TellorModule is Module, UsingTellor {
         address _avatar,
         address _target,
         address payable _tellorAddress,
-        uint32 timeout,
         uint32 cooldown,
         uint32 expiration
     ) UsingTellor(_tellorAddress) {
@@ -68,7 +65,6 @@ contract TellorModule is Module, UsingTellor {
             _owner,
             _avatar,
             _target,
-            timeout,
             cooldown,
             expiration
         );
@@ -80,17 +76,15 @@ contract TellorModule is Module, UsingTellor {
             address _owner,
             address _avatar,
             address _target,
-            uint32 timeout,
             uint32 cooldown,
             uint32 expiration
         ) = abi.decode(
                 initParams,
-                (address, address, address, uint32, uint32, uint32)
+                (address, address, address, uint32, uint32)
             );
         __Ownable_init();
         require(_avatar != address(0), "Avatar can not be zero address");
         require(_target != address(0), "Target can not be zero address");
-        require(timeout > 0, "Timeout has to be greater 0");
         require(
             expiration == 0 || expiration - cooldown >= 60,
             "There need to be at least 60s between end of cooldown and expiration"
@@ -98,18 +92,11 @@ contract TellorModule is Module, UsingTellor {
         avatar = _avatar;
         target = _target;
         answerExpiration = expiration;
-        questionTimeout = timeout;
         questionCooldown = cooldown;
 
         transferOwnership(_owner);
 
         emit TellorModuleSetup(msg.sender, _owner, avatar, target);
-    }
-
-    /// @notice This can only be called by the owner
-    function setQuestionTimeout(uint32 timeout) public onlyOwner {
-        require(timeout > 0, "Timeout has to be greater 0");
-        questionTimeout = timeout;
     }
 
     /**
