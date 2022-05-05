@@ -3,7 +3,6 @@ pragma solidity >=0.8.0;
 
 import "@gnosis.pm/zodiac/contracts/core/Module.sol";
 import "usingtellor/contracts/UsingTellor.sol";
-import "hardhat/console.sol";
 
 contract TellorModule is Module, UsingTellor {
     bytes32 public constant INVALIDATED =
@@ -311,27 +310,27 @@ contract TellorModule is Module, UsingTellor {
 
         require(txHashes[txIndex] == txHash, "Unexpected transaction hash");
 
+
+        (bool _ifRetrieve, bytes memory _value, ) = getDataBefore(
+            questionId,
+            block.timestamp
+        );
+
+        require(_ifRetrieve, "Data not retrieved");
+
         uint256 finalizeTs = getTimestampbyQueryIdandIndex(
             questionId,
             getNewValueCountbyQueryId(questionId) - 1
         );
         // The answer is valid in the time after the cooldown and before the expiration time (if set).
-
         require(
             finalizeTs + uint256(questionCooldown) < block.timestamp,
             "Wait for additional cooldown"
         );
 
-        (bool _ifRetrieve, bytes memory _value, ) = getDataBefore(
-            questionId,
-            block.timestamp - questionCooldown
-        );
-
         uint256[] memory values = abi.decode(_value, (uint256[]));
 
         require(values[0] > values[1], "Transaction was not approved");
-
-        require(_ifRetrieve, "Data not retrieved");
 
         uint32 expiration = answerExpiration;
         require(

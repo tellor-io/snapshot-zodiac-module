@@ -4,17 +4,24 @@ import { task, types } from "hardhat/config";
 import { deployAndSetUpModule } from "@gnosis.pm/zodiac";
 import defaultTemplate from "./defaultTemplate.json";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
+import { Contract } from "ethers";
+
+const {
+  abi,
+  bytecode,
+} = require("usingtellor/artifacts/contracts/TellorPlayground.sol/TellorPlayground.json");
 
 interface TellorTaskArgs {
   owner: string;
   avatar: string;
   target: string;
-  oracle: string;
   timeout: string;
   cooldown: string;
   expiration: string;
   proxied: boolean;
 }
+
+let tellorOracle: Contract;
 
 const deployTellorModule = async (
   taskArgs: TellorTaskArgs,
@@ -22,6 +29,13 @@ const deployTellorModule = async (
 ) => {
   const [caller] = await hardhatRuntime.ethers.getSigners();
   console.log("Using the account:", caller.address);
+
+  let TellorOracle = await hardhatRuntime.ethers.getContractFactory(
+    abi,
+    bytecode
+  );
+  tellorOracle = await TellorOracle.deploy();
+  await tellorOracle.deployed();
 
   if (taskArgs.proxied) {
     const chainId = await hardhatRuntime.getChainId();
@@ -42,7 +56,7 @@ const deployTellorModule = async (
           taskArgs.owner,
           taskArgs.avatar,
           taskArgs.target,
-          taskArgs.oracle,
+          tellorOracle.address,
           taskArgs.timeout,
           taskArgs.cooldown,
           taskArgs.expiration,
@@ -64,14 +78,35 @@ const deployTellorModule = async (
     taskArgs.owner,
     taskArgs.avatar,
     taskArgs.target,
-    taskArgs.oracle,
+    tellorOracle.address,
     taskArgs.timeout,
     taskArgs.cooldown,
-    taskArgs.expiration,
+    taskArgs.expiration
   );
   await module.deployTransaction.wait();
   console.log("Module deployed to:", module.address);
 
+  // Wait for few confirmed transactions.
+  // Otherwise the etherscan api doesn't find the deployed contract.
+  console.log("waiting for tx confirmation...");
+  await module.deployTransaction.wait(5);
+
+  console.log("submitting contract for verification...");
+
+
+  await hardhatRuntime.run("verify", {
+    address: module.address,
+    constructorArgsParams: [
+      taskArgs.owner,
+      taskArgs.avatar,
+      taskArgs.target,
+      tellorOracle.address,
+      `${taskArgs.timeout}`,
+      `${taskArgs.cooldown}`,
+      `${taskArgs.expiration}`,
+    ],
+  });
+  console.log("SnapshotVoting contract verified");
 };
 
 task("setup", "Provides the clearing price to an auction")
@@ -83,12 +118,12 @@ task("setup", "Provides the clearing price to an auction")
     types.string
   )
   .addParam("target", "Address of the target", undefined, types.string)
-  .addParam(
-    "oracle",
-    "Address of the oracle (e.g. Realitio)",
-    undefined,
-    types.string
-  )
+  // .addParam(
+  //   "oracle",
+  //   "Address of the oracle (e.g. Realitio)",
+  //   undefined,
+  //   types.string
+  // )
   .addParam(
     "timeout",
     "Timeout in seconds that should be required for the oracle",
@@ -129,18 +164,18 @@ task("verifyEtherscan", "Verifies the contract on etherscan")
     types.string
   )
   .addParam("target", "Address of the target", undefined, types.string)
-  .addParam(
-    "oracle",
-    "Address of the oracle (e.g. Realitio)",
-    undefined,
-    types.string
-  )
-  .addParam(
-    "template",
-    "Template that should be used for proposal questions (See https://github.com/realitio/realitio-dapp#structuring-and-fetching-information)",
-    undefined,
-    types.string
-  )
+  // .addParam(
+  //   "oracle",
+  //   "Address of the oracle (e.g. Realitio)",
+  //   undefined,
+  //   types.string
+  // )
+  // .addParam(
+  //   "template",
+  //   "Template that should be used for proposal questions (See https://github.com/realitio/realitio-dapp#structuring-and-fetching-information)",
+  //   undefined,
+  //   types.string
+  // )
   .addParam(
     "timeout",
     "Timeout in seconds that should be required for the oracle",
@@ -170,7 +205,8 @@ task("verifyEtherscan", "Verifies the contract on etherscan")
           taskArgs.owner,
           taskArgs.avatar,
           taskArgs.target,
-          taskArgs.oracle,
+          tellorOracle.address,
+          // taskArgs.oracle,
           `${taskArgs.timeout}`,
           `${taskArgs.cooldown}`,
           `${taskArgs.expiration}`,
