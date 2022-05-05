@@ -328,9 +328,9 @@ contract TellorModule is Module, UsingTellor {
             "Wait for additional cooldown"
         );
 
-        uint256[] memory values = abi.decode(_value, (uint256[]));
+        bool didPass = abi.decode(_value, (bool));
 
-        require(values[0] > values[1], "Transaction was not approved");
+        require(didPass, "Transaction was not approved");
 
         uint32 expiration = answerExpiration;
         require(

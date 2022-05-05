@@ -703,7 +703,7 @@ describe("TellorModuleERC20", async () => {
 
       await oracle.submitValue(
         queryId,
-        abiCoder.encode(["uint256[]"], [[10023, 1058]]),
+        abiCoder.encode(["bool"], [true]),
         0,
         queryData
       );
@@ -768,7 +768,7 @@ describe("TellorModuleERC20", async () => {
 
       await oracle.submitValue(
         queryId,
-        abiCoder.encode(["uint256[]"], [[10023, 1058]]),
+        abiCoder.encode(["bool"], [true]),
         0,
         queryData
       );
@@ -967,7 +967,7 @@ describe("TellorModuleERC20", async () => {
 
       await oracle.submitValue(
         queryId,
-        abiCoder.encode(["uint256[]"], [[10023, 1058]]),
+        abiCoder.encode(["bool"], [true]),
         0,
         queryData
       );
@@ -1092,7 +1092,7 @@ describe("TellorModuleERC20", async () => {
 
       await oracle.submitValue(
         queryId,
-        abiCoder.encode(["uint256[]"], [[10023, 1058]]),
+        abiCoder.encode(["bool"], [true]),
         0,
         queryData
       );
@@ -1640,7 +1640,7 @@ describe("TellorModuleERC20", async () => {
 
       await oracle.submitValue(
         queryId,
-        abiCoder.encode(["uint256[]"], [[1058, 10023]]),
+        abiCoder.encode(["bool"], [false]),
         0,
         queryData
       );
@@ -1725,7 +1725,7 @@ describe("TellorModuleERC20", async () => {
 
       await oracle.submitValue(
         queryId,
-        abiCoder.encode(["uint256[]"], [[10023, 1058]]),
+        abiCoder.encode(["bool"], [true]),
         0,
         queryData
       );
@@ -1785,7 +1785,7 @@ describe("TellorModuleERC20", async () => {
 
       await oracle.submitValue(
         queryId,
-        abiCoder.encode(["uint256[]"], [[10023, 1058]]),
+        abiCoder.encode(["bool"], [true]),
         0,
         queryData
       );
@@ -1857,7 +1857,7 @@ describe("TellorModuleERC20", async () => {
 
       await oracle.submitValue(
         queryId,
-        abiCoder.encode(["uint256[]"], [[10023, 1058]]),
+        abiCoder.encode(["bool"], [true]),
         0,
         queryData
       );
@@ -1956,7 +1956,7 @@ describe("TellorModuleERC20", async () => {
 
       await oracle.submitValue(
         queryId,
-        abiCoder.encode(["uint256[]"], [[10023, 1058]]),
+        abiCoder.encode(["bool"], [true]),
         0,
         queryData
       );
@@ -2033,7 +2033,7 @@ describe("TellorModuleERC20", async () => {
 
       await oracle.submitValue(
         queryId,
-        abiCoder.encode(["uint256[]"], [[10023, 1058]]),
+        abiCoder.encode(["bool"], [true]),
         0,
         queryData
       );
@@ -2132,7 +2132,7 @@ describe("TellorModuleERC20", async () => {
 
       await oracle.submitValue(
         queryId,
-        abiCoder.encode(["uint256[]"], [[10023, 1058]]),
+        abiCoder.encode(["bool"], [true]),
         0,
         queryData
       );
@@ -2258,7 +2258,7 @@ describe("TellorModuleERC20", async () => {
 
       await oracle.submitValue(
         queryId,
-        abiCoder.encode(["uint256[]"], [[10023, 1058]]),
+        abiCoder.encode(["bool"], [true]),
         0,
         queryData
       );
@@ -2337,7 +2337,7 @@ describe("TellorModuleERC20", async () => {
 
       await oracle.submitValue(
         queryId,
-        abiCoder.encode(["uint256[]"], [[10023, 1058]]),
+        abiCoder.encode(["bool"], [true]),
         0,
         queryData
       );
@@ -2437,7 +2437,6 @@ describe("TellorModuleERC20", async () => {
         operation: 0,
         nonce: 0,
       };
-      console.log("address: "+user1.address)
       const tx1Hash = await module.getTransactionHash(
         tx1.to,
         tx1.value,
@@ -2454,7 +2453,6 @@ describe("TellorModuleERC20", async () => {
         tx2.nonce
       );
 
-      console.log("hash: "+tx1Hash)
       expect(tx1Hash).to.be.not.equals(tx2Hash);
 
       const question = await module.buildQuestion(id, [tx1Hash, tx2Hash]);
@@ -2475,7 +2473,7 @@ describe("TellorModuleERC20", async () => {
 
       await oracle.submitValue(
         queryId,
-        abiCoder.encode(["uint256[]"], [[10023, 1058]]),
+        abiCoder.encode(["bool"], [true]),
         0,
         queryData
       );
