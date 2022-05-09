@@ -66,9 +66,8 @@ describe("TellorModuleERC20", async () => {
       base.avatar.address,
       base.avatar.address,
       base.oracle.address,
-      42,
       23,
-      0,
+      0
     );
     return { ...base, Module, module };
   });
@@ -81,9 +80,8 @@ describe("TellorModuleERC20", async () => {
       base.mock.address,
       base.mock.address,
       base.oracle.address,
-      42,
       23,
-      0,
+      0
     );
     return { ...base, Module, module };
   });
@@ -98,9 +96,8 @@ describe("TellorModuleERC20", async () => {
         user1.address,
         user1.address,
         user1.address,
-        42,
         23,
-        0,
+        0
       );
       await expect(
         module.setUp(buildMockInitializerParams(mock))
@@ -115,9 +112,8 @@ describe("TellorModuleERC20", async () => {
           ZERO_ADDRESS,
           user1.address,
           user1.address,
-          42,
           23,
-          0,
+          0
         )
       ).to.be.revertedWith("Avatar can not be zero address");
     });
@@ -130,26 +126,10 @@ describe("TellorModuleERC20", async () => {
           user1.address,
           ZERO_ADDRESS,
           user1.address,
-          42,
           23,
-          0,
+          0
         )
       ).to.be.revertedWith("Target can not be zero address");
-    });
-
-    it("throws if timeout is 0", async () => {
-      const Module = await hre.ethers.getContractFactory("TellorModule");
-      await expect(
-        Module.deploy(
-          user1.address,
-          user1.address,
-          user1.address,
-          user1.address,
-          0,
-          0,
-          0,
-        )
-      ).to.be.revertedWith("Timeout has to be greater 0");
     });
 
     it("throws if not enough time between cooldown and expiration", async () => {
@@ -160,9 +140,8 @@ describe("TellorModuleERC20", async () => {
           user1.address,
           user1.address,
           user1.address,
-          1,
           0,
-          59,
+          59
         )
       ).to.be.revertedWith(
         "There need to be at least 60s between end of cooldown and expiration"
@@ -176,9 +155,8 @@ describe("TellorModuleERC20", async () => {
         user1.address,
         user1.address,
         user1.address,
-        1,
         10,
-        0,
+        0
       );
     });
 
@@ -189,125 +167,13 @@ describe("TellorModuleERC20", async () => {
         user1.address,
         user1.address,
         user1.address,
-        1,
         10,
-        0,
+        0
       );
       await module.deployed();
       await expect(module.deployTransaction)
         .to.emit(module, "TellorModuleSetup")
         .withArgs(user1.address, user1.address, user1.address, user1.address);
-    });
-  });
-
-  describe("setQuestionTimeout", async () => {
-    it("throws if Ownable: caller is not the owner", async () => {
-      const { module } = await setupTestWithTestAvatar();
-      await expect(module.setQuestionTimeout(2)).to.be.revertedWith(
-        "Ownable: caller is not the owner"
-      );
-    });
-
-    it("throws if timeout is 0", async () => {
-      const { avatar, module } = await setupTestWithTestAvatar();
-      const calldata = module.interface.encodeFunctionData(
-        "setQuestionTimeout",
-        [0]
-      );
-      await expect(avatar.exec(module.address, 0, calldata)).to.be.revertedWith(
-        "Timeout has to be greater 0"
-      );
-    });
-
-    it("updates question timeout", async () => {
-      const { module, avatar } = await setupTestWithTestAvatar();
-
-      expect(await module.questionTimeout()).to.be.equals(42);
-
-      const calldata = module.interface.encodeFunctionData(
-        "setQuestionTimeout",
-        [511]
-      );
-      await avatar.exec(module.address, 0, calldata);
-
-      expect(await module.questionTimeout()).to.be.equals(511);
-    });
-  });
-
-  describe("setQuestionCooldown", async () => {
-    it("throws if Ownable: caller is not the owner", async () => {
-      const { module } = await setupTestWithTestAvatar();
-      await expect(module.setQuestionCooldown(2)).to.be.revertedWith(
-        "Ownable: caller is not the owner"
-      );
-    });
-
-    it("throws if not enough time between cooldown and expiration", async () => {
-      const { module, avatar } = await setupTestWithTestAvatar();
-
-      const setAnswerExpiration = module.interface.encodeFunctionData(
-        "setAnswerExpiration",
-        [100]
-      );
-      await avatar.exec(module.address, 0, setAnswerExpiration);
-
-      const setQuestionCooldownInvalid = module.interface.encodeFunctionData(
-        "setQuestionCooldown",
-        [41]
-      );
-      await expect(
-        avatar.exec(module.address, 0, setQuestionCooldownInvalid)
-      ).to.be.revertedWith(
-        "There need to be at least 60s between end of cooldown and expiration"
-      );
-
-      const setQuestionCooldown = module.interface.encodeFunctionData(
-        "setQuestionCooldown",
-        [40]
-      );
-      await avatar.exec(module.address, 0, setQuestionCooldown);
-
-      expect(await module.questionCooldown()).to.be.equals(40);
-    });
-
-    it("can reset to 0", async () => {
-      const { module, avatar } = await setupTestWithTestAvatar();
-
-      const setAnswerExpiration = module.interface.encodeFunctionData(
-        "setAnswerExpiration",
-        [100]
-      );
-      await avatar.exec(module.address, 0, setAnswerExpiration);
-
-      const setQuestionCooldown = module.interface.encodeFunctionData(
-        "setQuestionCooldown",
-        [40]
-      );
-      await avatar.exec(module.address, 0, setQuestionCooldown);
-
-      expect(await module.questionCooldown()).to.be.equals(40);
-
-      const resetQuestionCooldown = module.interface.encodeFunctionData(
-        "setQuestionCooldown",
-        [0]
-      );
-      await avatar.exec(module.address, 0, resetQuestionCooldown);
-
-      expect(await module.questionCooldown()).to.be.equals(0);
-    });
-
-    it("updates question cooldown", async () => {
-      const { module, avatar } = await setupTestWithTestAvatar();
-
-      expect(await module.questionCooldown()).to.be.equals(23);
-
-      const calldata = module.interface.encodeFunctionData(
-        "setQuestionCooldown",
-        [511]
-      );
-      await avatar.exec(module.address, 0, calldata);
-
-      expect(await module.questionCooldown()).to.be.equals(511);
     });
   });
 
@@ -322,43 +188,23 @@ describe("TellorModuleERC20", async () => {
     it("throws if not enough time between cooldown and expiration", async () => {
       const { module, avatar } = await setupTestWithTestAvatar();
 
-      const setQuestionCooldown = module.interface.encodeFunctionData(
-        "setQuestionCooldown",
+      const setAnswerExpiration = module.interface.encodeFunctionData(
+        "setAnswerExpiration",
         [40]
       );
-      await avatar.exec(module.address, 0, setQuestionCooldown);
+      await expect(
+        avatar.exec(module.address, 0, setAnswerExpiration)
+      ).to.be.revertedWith(
+        "There need to be at least 60s between end of cooldown and expiration"
+      );
 
       const setAnswerExpirationInvalid = module.interface.encodeFunctionData(
         "setAnswerExpiration",
         [99]
       );
-      await expect(
-        avatar.exec(module.address, 0, setAnswerExpirationInvalid)
-      ).to.be.revertedWith(
-        "There need to be at least 60s between end of cooldown and expiration"
-      );
+      await avatar.exec(module.address, 0, setAnswerExpirationInvalid);
 
-      const setAnswerExpiration = module.interface.encodeFunctionData(
-        "setAnswerExpiration",
-        [100]
-      );
-      await avatar.exec(module.address, 0, setAnswerExpiration);
-
-      expect(await module.answerExpiration()).to.be.equals(100);
-    });
-
-    it("updates question cooldown", async () => {
-      const { module, avatar } = await setupTestWithTestAvatar();
-
-      expect(await module.answerExpiration()).to.be.equals(0);
-
-      const calldata = module.interface.encodeFunctionData(
-        "setAnswerExpiration",
-        [511]
-      );
-      await avatar.exec(module.address, 0, calldata);
-
-      expect(await module.answerExpiration()).to.be.equals(511);
+      expect(await module.questionCooldown()).to.be.equals(23);
     });
   });
 
@@ -630,7 +476,6 @@ describe("TellorModuleERC20", async () => {
         ethers.utils.toUtf8Bytes(question)
       );
 
-      const block = await ethers.provider.getBlock("latest");
       await mock.givenMethodReturnUint(
         module.interface.getSighash("getQuestionId"),
         questionId
@@ -641,9 +486,24 @@ describe("TellorModuleERC20", async () => {
       );
       await module.addProposal(id, [txHash]);
 
+      // submit to the oracle first
+      const queryDataArgs = abiCoder.encode(["string"], [id]);
+      const queryData = abiCoder.encode(
+        ["string", "bytes"],
+        ["Snapshot", queryDataArgs]
+      );
+      const queryId = ethers.utils.keccak256(queryData);
+
+      await oracle.submitValue(
+        queryId,
+        abiCoder.encode(["bool"], [false]),
+        0,
+        queryData
+      );
+
       await expect(
         module.markProposalWithExpiredAnswerAsInvalid(questionHash)
-      ).to.be.revertedWith("Data not retrieved");
+      ).to.be.revertedWith("Transaction was not approved");
     });
 
     it("throws if answer is not expired", async () => {
@@ -703,14 +563,14 @@ describe("TellorModuleERC20", async () => {
 
       await oracle.submitValue(
         queryId,
-        abiCoder.encode(["uint256[]"], [[10023, 1058]]),
+        abiCoder.encode(["bool"], [true]),
         0,
         queryData
       );
 
       await expect(
         module.markProposalWithExpiredAnswerAsInvalid(questionHash)
-      ).to.be.revertedWith("Data not retrieved");
+      ).to.be.revertedWith("Answer has not expired yet");
     });
 
     it("can mark proposal with expired accepted answer as invalid", async () => {
@@ -768,7 +628,7 @@ describe("TellorModuleERC20", async () => {
 
       await oracle.submitValue(
         queryId,
-        abiCoder.encode(["uint256[]"], [[10023, 1058]]),
+        abiCoder.encode(["bool"], [true]),
         0,
         queryData
       );
@@ -858,7 +718,6 @@ describe("TellorModuleERC20", async () => {
   });
 
   describe("addProposal", async () => {
-
     it("throws if proposed question was already invalidated before creation", async () => {
       const { module, mock, oracle, avatar } = await setupTestWithTestAvatar();
       const id = "some_random_id";
@@ -894,7 +753,6 @@ describe("TellorModuleERC20", async () => {
         ["some_tx_data"]
       );
 
-      const question = await module.buildQuestion(id, [txHash]);
       const questionId = await module.getQuestionId(id);
 
       await mock.givenMethodReturnUint(
@@ -926,12 +784,6 @@ describe("TellorModuleERC20", async () => {
       );
 
       await module.addProposal(id, [txHash]);
-
-      const updateQuestionTimeout = module.interface.encodeFunctionData(
-        "setQuestionTimeout",
-        [31]
-      );
-      await avatar.exec(module.address, 0, updateQuestionTimeout);
 
       await expect(module.addProposal(id, [txHash])).to.be.revertedWith(
         "Proposal has already been submitted"
@@ -967,7 +819,7 @@ describe("TellorModuleERC20", async () => {
 
       await oracle.submitValue(
         queryId,
-        abiCoder.encode(["uint256[]"], [[10023, 1058]]),
+        abiCoder.encode(["bool"], [true]),
         0,
         queryData
       );
@@ -980,10 +832,10 @@ describe("TellorModuleERC20", async () => {
         questionId
       );
 
-      const askQuestionCalldata = module.interface.encodeFunctionData(
-        "getQuestionId",
-        [id]
-      );
+      // const askQuestionCalldata = module.interface.encodeFunctionData(
+      //   "getQuestionId",
+      //   [id]
+      // );
       // expect(
       //   (
       //     await mock.callStatic.invocationCountForCalldata(askQuestionCalldata)
@@ -1024,10 +876,10 @@ describe("TellorModuleERC20", async () => {
       questionId
     );
 
-    const askQuestionCalldata = module.interface.encodeFunctionData(
-      "getQuestionId",
-      [id]
-    );
+    // const askQuestionCalldata = module.interface.encodeFunctionData(
+    //   "getQuestionId",
+    //   [id]
+    // );
     // expect(
     //   (
     //     await mock.callStatic.invocationCountForCalldata(askQuestionCalldata)
@@ -1092,7 +944,7 @@ describe("TellorModuleERC20", async () => {
 
       await oracle.submitValue(
         queryId,
-        abiCoder.encode(["uint256[]"], [[10023, 1058]]),
+        abiCoder.encode(["bool"], [true]),
         0,
         queryData
       );
@@ -1104,14 +956,14 @@ describe("TellorModuleERC20", async () => {
         questionId
       );
       const block = await ethers.provider.getBlock("latest");
-      const getDataBeforeCalldata = module.interface.encodeFunctionData(
-        "getDataBefore",
-        [previousQuestionId, block.timestamp]
-      );
-      await mock.givenCalldataReturnUint(
-        getDataBeforeCalldata,
-        INVALIDATED_STATE
-      );
+      // const getDataBeforeCalldata = module.interface.encodeFunctionData(
+      //   "getDataBefore",
+      //   [previousQuestionId, block.timestamp]
+      // );
+      // await mock.givenCalldataReturnUint(
+      //   getDataBeforeCalldata,
+      //   INVALIDATED_STATE
+      // );
 
       // await expect(module.addProposalWithNonce(id, [txHash], 1))
       //   .to.emit(module, "ProposalQuestionCreated")
@@ -1160,12 +1012,6 @@ describe("TellorModuleERC20", async () => {
       );
 
       await module.addProposal(id, [txHash]);
-
-      const updateQuestionTimeout = module.interface.encodeFunctionData(
-        "setQuestionTimeout",
-        [23]
-      );
-      await avatar.exec(module.address, 0, updateQuestionTimeout);
 
       const questionId = await module.getQuestionId(id);
       await mock.givenMethodReturnUint(
@@ -1255,7 +1101,10 @@ describe("TellorModuleERC20", async () => {
         finalQuestionId
       );
       await mock.givenCalldataReturnUint(
-        module.interface.encodeFunctionData("getDataBefore", [questionId, block.timestamp]),
+        module.interface.encodeFunctionData("getDataBefore", [
+          questionId,
+          block.timestamp,
+        ]),
         INVALIDATED_STATE
       );
 
@@ -1266,10 +1115,10 @@ describe("TellorModuleERC20", async () => {
       //   finalQuestionId
       // );
 
-      const askQuestionCalldata = module.interface.encodeFunctionData(
-        "getQuestionId",
-        [id]
-      );
+      // const askQuestionCalldata = module.interface.encodeFunctionData(
+      //   "getQuestionId",
+      //   [id]
+      // );
       // expect(
       //   (
       //     await mock.callStatic.invocationCountForCalldata(askQuestionCalldata)
@@ -1503,12 +1352,6 @@ describe("TellorModuleERC20", async () => {
         )
       ).to.be.revertedWith("Proposal has been invalidated");
 
-      const updateQuestionTimeout = module.interface.encodeFunctionData(
-        "setQuestionTimeout",
-        [31]
-      );
-      await avatar.exec(module.address, 0, updateQuestionTimeout);
-
       await expect(
         module.executeProposal(
           id,
@@ -1640,7 +1483,7 @@ describe("TellorModuleERC20", async () => {
 
       await oracle.submitValue(
         queryId,
-        abiCoder.encode(["uint256[]"], [[1058, 10023]]),
+        abiCoder.encode(["bool"], [false]),
         0,
         queryData
       );
@@ -1725,7 +1568,7 @@ describe("TellorModuleERC20", async () => {
 
       await oracle.submitValue(
         queryId,
-        abiCoder.encode(["uint256[]"], [[10023, 1058]]),
+        abiCoder.encode(["bool"], [true]),
         0,
         queryData
       );
@@ -1785,7 +1628,7 @@ describe("TellorModuleERC20", async () => {
 
       await oracle.submitValue(
         queryId,
-        abiCoder.encode(["uint256[]"], [[10023, 1058]]),
+        abiCoder.encode(["bool"], [true]),
         0,
         queryData
       );
@@ -1840,7 +1683,6 @@ describe("TellorModuleERC20", async () => {
         tx.operation,
         tx.nonce
       );
-      const question = await module.buildQuestion(id, [txHash]);
       const questionId = await module.getQuestionId(id);
 
       await mock.givenMethodReturnUint(
@@ -1857,7 +1699,7 @@ describe("TellorModuleERC20", async () => {
 
       await oracle.submitValue(
         queryId,
-        abiCoder.encode(["uint256[]"], [[10023, 1058]]),
+        abiCoder.encode(["bool"], [true]),
         0,
         queryData
       );
@@ -1956,7 +1798,7 @@ describe("TellorModuleERC20", async () => {
 
       await oracle.submitValue(
         queryId,
-        abiCoder.encode(["uint256[]"], [[10023, 1058]]),
+        abiCoder.encode(["bool"], [true]),
         0,
         queryData
       );
@@ -2033,7 +1875,7 @@ describe("TellorModuleERC20", async () => {
 
       await oracle.submitValue(
         queryId,
-        abiCoder.encode(["uint256[]"], [[10023, 1058]]),
+        abiCoder.encode(["bool"], [true]),
         0,
         queryData
       );
@@ -2132,7 +1974,7 @@ describe("TellorModuleERC20", async () => {
 
       await oracle.submitValue(
         queryId,
-        abiCoder.encode(["uint256[]"], [[10023, 1058]]),
+        abiCoder.encode(["bool"], [true]),
         0,
         queryData
       );
@@ -2258,7 +2100,7 @@ describe("TellorModuleERC20", async () => {
 
       await oracle.submitValue(
         queryId,
-        abiCoder.encode(["uint256[]"], [[10023, 1058]]),
+        abiCoder.encode(["bool"], [true]),
         0,
         queryData
       );
@@ -2337,7 +2179,7 @@ describe("TellorModuleERC20", async () => {
 
       await oracle.submitValue(
         queryId,
-        abiCoder.encode(["uint256[]"], [[10023, 1058]]),
+        abiCoder.encode(["bool"], [true]),
         0,
         queryData
       );
@@ -2437,7 +2279,6 @@ describe("TellorModuleERC20", async () => {
         operation: 0,
         nonce: 0,
       };
-      console.log("address: "+user1.address)
       const tx1Hash = await module.getTransactionHash(
         tx1.to,
         tx1.value,
@@ -2454,7 +2295,6 @@ describe("TellorModuleERC20", async () => {
         tx2.nonce
       );
 
-      console.log("hash: "+tx1Hash)
       expect(tx1Hash).to.be.not.equals(tx2Hash);
 
       const question = await module.buildQuestion(id, [tx1Hash, tx2Hash]);
@@ -2475,7 +2315,7 @@ describe("TellorModuleERC20", async () => {
 
       await oracle.submitValue(
         queryId,
-        abiCoder.encode(["uint256[]"], [[10023, 1058]]),
+        abiCoder.encode(["bool"], [true]),
         0,
         queryData
       );

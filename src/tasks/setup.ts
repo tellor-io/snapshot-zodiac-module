@@ -15,7 +15,6 @@ interface TellorTaskArgs {
   owner: string;
   avatar: string;
   target: string;
-  timeout: string;
   cooldown: string;
   expiration: string;
   proxied: boolean;
@@ -50,14 +49,12 @@ const deployTellorModule = async (
           "address",
           "uint32",
           "uint32",
-          "uint32",
         ],
         values: [
           taskArgs.owner,
           taskArgs.avatar,
           taskArgs.target,
           tellorOracle.address,
-          taskArgs.timeout,
           taskArgs.cooldown,
           taskArgs.expiration,
         ],
@@ -79,7 +76,6 @@ const deployTellorModule = async (
     taskArgs.avatar,
     taskArgs.target,
     tellorOracle.address,
-    taskArgs.timeout,
     taskArgs.cooldown,
     taskArgs.expiration
   );
@@ -89,7 +85,7 @@ const deployTellorModule = async (
   // Wait for few confirmed transactions.
   // Otherwise the etherscan api doesn't find the deployed contract.
   console.log("waiting for tx confirmation...");
-  await module.deployTransaction.wait(5);
+  await module.deployTransaction.wait(10);
 
   console.log("submitting contract for verification...");
 
@@ -101,7 +97,6 @@ const deployTellorModule = async (
       taskArgs.avatar,
       taskArgs.target,
       tellorOracle.address,
-      `${taskArgs.timeout}`,
       `${taskArgs.cooldown}`,
       `${taskArgs.expiration}`,
     ],
@@ -118,19 +113,6 @@ task("setup", "Provides the clearing price to an auction")
     types.string
   )
   .addParam("target", "Address of the target", undefined, types.string)
-  // .addParam(
-  //   "oracle",
-  //   "Address of the oracle (e.g. Realitio)",
-  //   undefined,
-  //   types.string
-  // )
-  .addParam(
-    "timeout",
-    "Timeout in seconds that should be required for the oracle",
-    48 * 3600,
-    types.int,
-    true
-  )
   .addParam(
     "cooldown",
     "Cooldown in seconds that should be required after a oracle provided answer",
@@ -164,25 +146,6 @@ task("verifyEtherscan", "Verifies the contract on etherscan")
     types.string
   )
   .addParam("target", "Address of the target", undefined, types.string)
-  // .addParam(
-  //   "oracle",
-  //   "Address of the oracle (e.g. Realitio)",
-  //   undefined,
-  //   types.string
-  // )
-  // .addParam(
-  //   "template",
-  //   "Template that should be used for proposal questions (See https://github.com/realitio/realitio-dapp#structuring-and-fetching-information)",
-  //   undefined,
-  //   types.string
-  // )
-  .addParam(
-    "timeout",
-    "Timeout in seconds that should be required for the oracle",
-    48 * 3600,
-    types.int,
-    true
-  )
   .addParam(
     "cooldown",
     "Cooldown in seconds that should be required after a oracle provided answer",
@@ -206,41 +169,11 @@ task("verifyEtherscan", "Verifies the contract on etherscan")
           taskArgs.avatar,
           taskArgs.target,
           tellorOracle.address,
-          // taskArgs.oracle,
-          `${taskArgs.timeout}`,
           `${taskArgs.cooldown}`,
           `${taskArgs.expiration}`,
         ],
       });
     }
   );
-
-task("createDaoTemplate", "Creates a question template on the oracle address")
-  .addParam(
-    "oracle",
-    "Address of the oracle (e.g. RealitioV3)",
-    undefined,
-    types.string
-  )
-  .addParam(
-    "template",
-    "Template string for question (should include placeholders for proposal id and txs hash)",
-    JSON.stringify(defaultTemplate),
-    types.string,
-    true
-  )
-  .setAction(async (taskArgs, hardhatRuntime) => {
-    const [caller] = await hardhatRuntime.ethers.getSigners();
-    console.log("Using the account:", caller.address);
-    const oracle = await hardhatRuntime.ethers.getContractAt(
-      "RealitioV3",
-      taskArgs.oracle
-    );
-    const receipt = await oracle
-      .createTemplate(taskArgs.template)
-      .then((tx: any) => tx.wait());
-    const id = receipt.logs[0].topics[1];
-    console.log("Template id:", id);
-  });
 
 export {};
