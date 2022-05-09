@@ -176,32 +176,4 @@ task("verifyEtherscan", "Verifies the contract on etherscan")
     }
   );
 
-task("createDaoTemplate", "Creates a question template on the oracle address")
-  .addParam(
-    "oracle",
-    "Address of the oracle (e.g. RealitioV3)",
-    undefined,
-    types.string
-  )
-  .addParam(
-    "template",
-    "Template string for question (should include placeholders for proposal id and txs hash)",
-    JSON.stringify(defaultTemplate),
-    types.string,
-    true
-  )
-  .setAction(async (taskArgs, hardhatRuntime) => {
-    const [caller] = await hardhatRuntime.ethers.getSigners();
-    console.log("Using the account:", caller.address);
-    const oracle = await hardhatRuntime.ethers.getContractAt(
-      "RealitioV3",
-      taskArgs.oracle
-    );
-    const receipt = await oracle
-      .createTemplate(taskArgs.template)
-      .then((tx: any) => tx.wait());
-    const id = receipt.logs[0].topics[1];
-    console.log("Template id:", id);
-  });
-
 export {};
