@@ -369,21 +369,6 @@ contract TellorModule is Module, UsingTellor {
         answerExpiration = _expiration;
     }
 
-    /**
-     * @dev Sets the cooldown before an answer is usable.
-     * @param _cooldown Cooldown in seconds that should be required after a oracle provided answer
-     * @notice This can only be called by the owner
-     * @notice There need to be at least 60 seconds between end of cooldown and expiration
-     */
-    function setQuestionCooldown(uint32 _cooldown) public onlyOwner {
-        uint32 _expiration = answerExpiration;
-        require(
-            _expiration == 0 || _expiration - _cooldown >= 60,
-            "There need to be at least 60s between end of cooldown and expiration"
-        );
-        questionCooldown = _cooldown;
-    }
-
     function setUp(bytes memory initParams) public override {
         (
             address _owner,
