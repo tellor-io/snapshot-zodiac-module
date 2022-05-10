@@ -2,7 +2,6 @@ import { expect } from "chai";
 import hre, { deployments, ethers } from "hardhat";
 import "@nomiclabs/hardhat-ethers";
 import { AbiCoder } from "ethers/lib/utils";
-import { BigNumber } from "ethers";
 
 const FIRST_ADDRESS = "0x0000000000000000000000000000000000000001";
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";

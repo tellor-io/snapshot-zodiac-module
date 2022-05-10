@@ -726,7 +726,6 @@ describe("TellorModuleERC20", async () => {
         ["some_tx_data"]
       );
 
-      const question = await module.buildQuestion(id, [txHash]);
       const questionId = await module.getQuestionId(id);
 
       await mock.givenMethodReturnUint(

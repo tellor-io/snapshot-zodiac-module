@@ -3,7 +3,6 @@ pragma solidity >=0.8.0;
 
 import "@gnosis.pm/zodiac/contracts/core/Module.sol";
 import "usingtellor/contracts/UsingTellor.sol";
-import "hardhat/console.sol";
 
 contract TellorModule is Module, UsingTellor {
     // Events

@@ -66,5 +66,5 @@ There are different services available for monitoring such as the [OpenZepplin D
 
 ## Support
 
-If you have any questions about the Tellor Module join our discord [Tellor Discord](https://discord.gg/tellor).
+If you have any questions about the Tellor Module join our [Tellor Discord](https://discord.gg/tellor).
 For more information about the Zodiac collection of tools, join the [Gnosis Discord](https://discord.gg/wwmBWTgyEq).
