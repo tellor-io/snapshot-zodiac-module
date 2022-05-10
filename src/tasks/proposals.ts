@@ -37,19 +37,16 @@ const getProposalDetails = async (module: Contract, path: string): Promise<Exten
 
 task("addProposal", "Adds a proposal question")
         .addParam("module", "Address of the module", undefined, types.string)
-        // .addParam("proposalFile", "File with proposal information json", undefined, types.inputFile)
         .setAction(async (taskArgs, hardhatRuntime) => {
             const ethers = hardhatRuntime.ethers;
             const Module = await ethers.getContractFactory("TellorModule");
             const module = await Module.attach(taskArgs.module);
 
-            // const proposal = await getProposalDetails(module, taskArgs.proposalFile);
             const id = 1;
             const tx = {
               to: process.env.ADDRESS,
               value: 1 * 10 ** 18, //1 eth
               data:"0x",
-            //   "0xbaddad",
               operation: 0,
               nonce: 0,
             };
@@ -86,26 +83,16 @@ task("showProposal", "Shows proposal question details")
 
 task("executeProposal", "Executes a proposal")
         .addParam("module", "Address of the module", undefined, types.string)
-        // .addParam("proposalFile", "File with proposal information json", undefined, types.inputFile)
         .setAction(async (taskArgs, hardhatRuntime) => {
             const ethers = hardhatRuntime.ethers;
             const Module = await ethers.getContractFactory("TellorModule");
             const module = await Module.attach(taskArgs.module);
 
-            // const proposal = await getProposalDetails(module, taskArgs.proposalFile);
-
-            // for (const index in proposal.txs) {
-            //     const moduleTx = proposal.txs[index]
-            //     const tx = await module.executeProposalWithIndex(
-            //         proposal.id, proposal.txsHashes, moduleTx.to, moduleTx.value, moduleTx.data, moduleTx.operation, index
-            //     );
-            // }
-
             const id = 1;
             const tx = {
               to: process.env.ADDRESS,
-              value: 0,
-              data: "0xbaddad",
+              value: 1 * 10 ** 18, //1 eth
+              data:"0x",
               operation: 0,
               nonce: 0,
             };

@@ -2,7 +2,6 @@ import "hardhat-deploy";
 import "@nomiclabs/hardhat-ethers";
 import { task, types } from "hardhat/config";
 import { deployAndSetUpModule } from "@gnosis.pm/zodiac";
-import defaultTemplate from "./defaultTemplate.json";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { Contract } from "ethers";
 
