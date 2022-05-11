@@ -11,7 +11,7 @@ For more information about the Zodiac collection of tools, join the [Gnosis Disc
 
 This module allows on-chain execution based on the outcome of [Snapshot](https://snapshot.org/) proposals reported by the [Tellor](https://tellor.io/) oracle. This module is a Tellor implementation of the [Reality Module](https://github.com/gnosis/zodiac-module-reality).
 
-The `Snapshot` query consists of a proposal ID (e.g. an IPFS hash), which can be used to provide more information for the transaction to be executed. 
+The `Snapshot` query consists of a proposal ID (an IPFS hash), which can be used to provide more information for the transaction to be executed. 
 An array of EIP-712-based transaction hashes represent the transactions that should be executed. It is only possible to execute transactions related to a specific `proposalId` once.
 
 When the query response has resolved to `true`, meaning that the transactions should be executed, they are submitted to the immutable executor defined in the module. Transactions that resolve to `false` cannot be executed by the module.

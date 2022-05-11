@@ -15,8 +15,6 @@ interface TellorTaskArgs {
   proxied: boolean;
 }
 
-
-
 const deployTellorModule = async (
   taskArgs: TellorTaskArgs,
   hardhatRuntime: HardhatRuntimeEnvironment
@@ -30,14 +28,7 @@ const deployTellorModule = async (
     const { transaction } = deployAndSetUpModule(
       module,
       {
-        types: [
-          "address",
-          "address",
-          "address",
-          "address",
-          "uint32",
-          "uint32",
-        ],
+        types: ["address", "address", "address", "address", "uint32", "uint32"],
         values: [
           taskArgs.owner,
           taskArgs.avatar,
@@ -76,7 +67,6 @@ const deployTellorModule = async (
   await module.deployTransaction.wait(10);
 
   console.log("submitting contract for verification...");
-
 
   await hardhatRuntime.run("verify", {
     address: module.address,

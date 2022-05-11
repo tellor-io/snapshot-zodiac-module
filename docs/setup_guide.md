@@ -18,7 +18,7 @@ The module has six attributes:
 - `Owner`: Address that can call setter functions
 - `Avatar`: Address of the DAO (e.g a Gnosis Safe)
 - `Target`: Address on which the module will call `execModuleTransaction()`
-- `Oracle`: Address of the oracle (e.g Tellor contract address)
+- `Oracle`: Address of the oracle (Tellor contract address)
 - `Cooldown`: Duration (in seconds) required before the transaction can be executed (after the timeout has expired)
 - `Expiration`: Duration that a transaction is valid in seconds (or 0 if valid forever) after the cooldown
 
@@ -29,6 +29,7 @@ This task requires the following parameters:
 - `Owner`: Address that can call setter functions
 - `Avatar`: Address of the DAO (e.g a Gnosis Safe)
 - `Target`: Address on which the module will call `execModuleTransaction()`
+- `Oracle`: Address of the oracle (Tellor contract address)
 - `proxied` (Optional): Deploys the module through a proxy factory
 
 There are more optional parameters, for more information run `yarn hardhat setup --help`.
@@ -52,13 +53,13 @@ To setup the newly deployed module on snapshot view the [Snapshot integration gu
 
 ## Monitoring your module
 
-Because anyone can submit proposals to your module, it is strongly recommended to put in place monitoring practices. The Tellor Module relies on the oracle (e.g. Tellor) to provide the correct answer, so that no malicious transactions are executed. In the worst case, the avatar (e.g. the connected Gnosis Safe) can invalidate a submitted proposal. See the [README](../README.md) for more information on this. 
+Because anyone can submit proposals to your module, it is strongly recommended to put in place monitoring practices. The Tellor Module relies on the Tellor oracle to provide the correct answer, so that no malicious transactions are executed. In the worst case, the avatar (e.g. the connected Gnosis Safe) can invalidate a submitted proposal. See the [README](../README.md) for more information on this. 
 
 To make sure that all of the involved stakeholders can react in a timely manner, the events emitted by the module contract should be monitored. Each time a new proposal is submitted, the contract will emit a `ProposalQuestionCreated` event with the following parameters:
 ```
 event ProposalQuestionCreated(
-    bytes32 indexed questionId, // e.g. Tellor query id
-    string indexed proposalId // e.g. Snapshot proposal id
+    bytes32 indexed questionId, // Tellor query id
+    string indexed proposalId // Snapshot proposal id
 );
 ```
 
