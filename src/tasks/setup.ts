@@ -3,23 +3,19 @@ import "@nomiclabs/hardhat-ethers";
 import { task, types } from "hardhat/config";
 import { deployAndSetUpModule } from "@gnosis.pm/zodiac";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
-import { Contract } from "ethers";
-
-const {
-  abi,
-  bytecode,
-} = require("usingtellor/artifacts/contracts/TellorPlayground.sol/TellorPlayground.json");
+import { Address } from "hardhat-deploy/types";
 
 interface TellorTaskArgs {
   owner: string;
   avatar: string;
   target: string;
+  oracle: Address;
   cooldown: string;
   expiration: string;
   proxied: boolean;
 }
 
-let tellorOracle: Contract;
+
 
 const deployTellorModule = async (
   taskArgs: TellorTaskArgs,
@@ -27,13 +23,6 @@ const deployTellorModule = async (
 ) => {
   const [caller] = await hardhatRuntime.ethers.getSigners();
   console.log("Using the account:", caller.address);
-
-  let TellorOracle = await hardhatRuntime.ethers.getContractFactory(
-    abi,
-    bytecode
-  );
-  tellorOracle = await TellorOracle.deploy();
-  await tellorOracle.deployed();
 
   if (taskArgs.proxied) {
     const chainId = await hardhatRuntime.getChainId();
@@ -53,7 +42,7 @@ const deployTellorModule = async (
           taskArgs.owner,
           taskArgs.avatar,
           taskArgs.target,
-          tellorOracle.address,
+          taskArgs.oracle,
           taskArgs.cooldown,
           taskArgs.expiration,
         ],
@@ -74,7 +63,7 @@ const deployTellorModule = async (
     taskArgs.owner,
     taskArgs.avatar,
     taskArgs.target,
-    tellorOracle.address,
+    taskArgs.oracle,
     taskArgs.cooldown,
     taskArgs.expiration
   );
@@ -95,7 +84,7 @@ const deployTellorModule = async (
       taskArgs.owner,
       taskArgs.avatar,
       taskArgs.target,
-      tellorOracle.address,
+      taskArgs.oracle,
       `${taskArgs.cooldown}`,
       `${taskArgs.expiration}`,
     ],
@@ -112,6 +101,7 @@ task("setup", "Provides the clearing price to an auction")
     types.string
   )
   .addParam("target", "Address of the target", undefined, types.string)
+  .addParam("oracle", "Address of the oracle", undefined, types.string)
   .addParam(
     "cooldown",
     "Cooldown in seconds that should be required after a oracle provided answer",
@@ -145,6 +135,7 @@ task("verifyEtherscan", "Verifies the contract on etherscan")
     types.string
   )
   .addParam("target", "Address of the target", undefined, types.string)
+  .addParam("oracle", "Address of the oracle", undefined, types.string)
   .addParam(
     "cooldown",
     "Cooldown in seconds that should be required after a oracle provided answer",
@@ -167,7 +158,7 @@ task("verifyEtherscan", "Verifies the contract on etherscan")
           taskArgs.owner,
           taskArgs.avatar,
           taskArgs.target,
-          tellorOracle.address,
+          taskArgs.oracle,
           `${taskArgs.cooldown}`,
           `${taskArgs.expiration}`,
         ],
