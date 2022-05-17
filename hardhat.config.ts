@@ -35,7 +35,7 @@ if (PK) {
 
 if (["rinkeby", "mainnet"].includes(argv.network) && INFURA_KEY === undefined) {
   throw new Error(
-    `Could not find Infura key in env, unable to connect to network ${argv.network}`,
+    `Could not find Infura key in env, unable to connect to network ${argv.network}`
   );
 }
 
@@ -47,10 +47,7 @@ export default {
     sources: "contracts",
   },
   solidity: {
-    compilers: [
-      { version: "0.8.0" },
-      { version: "0.6.12" },
-    ]
+    compilers: [{ version: "0.8.0" }, { version: "0.6.12" }],
   },
   networks: {
     mainnet: {
@@ -60,8 +57,8 @@ export default {
     rinkeby: {
       ...sharedNetworkConfig,
       url: `https://rinkeby.infura.io/v3/${INFURA_KEY}`,
-      gas: 10000000 ,
-      gasPrice: 40000000000
+      gas: 10000000,
+      gasPrice: 40000000000,
     },
     xdai: {
       ...sharedNetworkConfig,
@@ -69,8 +66,11 @@ export default {
     },
     matic: {
       ...sharedNetworkConfig,
-      url: "https://rpc-mainnet.maticvigil.com"
-    }
+      url: "https://rpc-mainnet.maticvigil.com",
+    },
+    forking: {
+      url: `https://eth-rinkeby.alchemyapi.io/v2/${process.env.ALCHEMY_API_KEY_RINKEBY}`,
+    },
   },
   namedAccounts: {
     deployer: 0,

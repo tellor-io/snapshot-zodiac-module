@@ -1,4 +1,4 @@
-# Tellor Reality Module
+# Tellor Module
 [![Build Status](https://github.com/gnosis/dao-module/workflows/dao-module/badge.svg?branch=main)](https://github.com/gnosis/dao-module/actions)
 [![Coverage Status](https://coveralls.io/repos/github/gnosis/dao-module/badge.svg?branch=main)](https://coveralls.io/github/gnosis/dao-module)
 
@@ -12,7 +12,7 @@ For more information about the Zodiac collection of tools, join the [Gnosis Disc
 This module allows on-chain execution based on the outcome of [Snapshot](https://snapshot.org/) proposals reported by the [Tellor](https://tellor.io/) oracle. This module is a Tellor implementation of the [Reality Module](https://github.com/gnosis/zodiac-module-reality).
 
 The `Snapshot` query consists of a proposal ID (an IPFS hash), which can be used to provide more information for the transaction to be executed. 
-An array of EIP-712-based transaction hashes represent the transactions that should be executed. It is only possible to execute transactions related to a specific `proposalId` once.
+An array of EIP-712-based transaction hashes represent the transactions that should be executed. It is only possible to execute transactions related to a specific `proposalId` and `txHashes` once.
 
 When the query response has resolved to `true`, meaning that the transactions should be executed, they are submitted to the immutable executor defined in the module. Transactions that resolve to `false` cannot be executed by the module.
 
@@ -42,7 +42,7 @@ This module can be setup either using the Zodiac App's UI or by using command li
 
 The `nonce` of a transaction makes it possible to have two transactions with the same `to`, `value` and `data` but still generate a different transaction hash. This is important as all hashes in the `txHashes` array should be unique. To make sure that this is the case, the module will always use the `index` of the transaction hash inside the `txHashes` array as a nonce. So the first transaction to be executed has the `nonce` with the value `0`, the second with the value `1`, and so on.
 
-Therefore we can simplify it to the following statement: The `nonce` of a Reality Module transaction is equal to the `index` of that transaction's hash in the `txHashes` array.
+Therefore we can simplify it to the following statement: The `nonce` of a Tellor Module transaction is equal to the `index` of that transaction's hash in the `txHashes` array.
 
 <!-- #### Proposal nonce
 There is a chance that a question is marked invalid on the oracle (e.g. if it is asked too early). In this case it should be possible to ask the question again, and we need to be able to generate a new question ID. For this it is possible to provide the next higher `nonce` compared to the last invalidated proposal. So in case the first proposal (with the default `nonce` of `0`) was marked invalid on the oracle, a new proposal can be submitted with the `nonce` of `1`. -->

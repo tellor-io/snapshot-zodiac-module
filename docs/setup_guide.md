@@ -1,4 +1,4 @@
-# Zodiac Reality Module Setup Guide
+# Tellor Module Setup Guide
 
 This guide shows how to setup the Tellor module with a Gnosis Safe on the Rinkeby test network. It will use the [Tellor](https://tellor.io/) oracle to retrieve [Snapshot](https://snapshot.org/) voting results.
 
