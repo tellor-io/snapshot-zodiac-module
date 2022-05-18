@@ -6,7 +6,7 @@ import "usingtellor/contracts/UsingTellor.sol";
 
 contract TellorModule is Module, UsingTellor {
     // Events
-    event ProposalQuestionCreated(
+    event ProposalAdded(
         bytes32 indexed queryId,
         string indexed proposalId
     );
@@ -19,7 +19,7 @@ contract TellorModule is Module, UsingTellor {
     );
 
     // Storage
-    uint32 public answerExpiration;
+    uint32 public resultExpiration;
     bytes32 public constant DOMAIN_SEPARATOR_TYPEHASH =
         0x47e79534a245952e8b16893a336b85a3d9ea9fa8c573f3d803afb92a79469218;
     // keccak256(
@@ -91,7 +91,7 @@ contract TellorModule is Module, UsingTellor {
         bytes32 _queryId = getQueryId(_proposalId);
         // Set the proposal hash for this query id
         queryIds[_proposalHash] = _queryId;
-        emit ProposalQuestionCreated(_queryId, _proposalId);
+        emit ProposalAdded(_queryId, _proposalId);
     }
 
     /**
@@ -200,7 +200,7 @@ contract TellorModule is Module, UsingTellor {
 
         require(_didPass, "Transaction was not approved");
 
-        uint32 _expiration = answerExpiration;
+        uint32 _expiration = resultExpiration;
         require(
             _expiration == 0 ||
                 _timestampReceived + uint256(_expiration) >= block.timestamp,
@@ -354,11 +354,11 @@ contract TellorModule is Module, UsingTellor {
      * @dev Marks a proposal with an expired result as invalid, preventing execution of the connected transactions
      * @param _proposalHash Proposal hash calculated based on the proposal id and txHashes
      */
-    function markProposalWithExpiredAnswerAsInvalid(bytes32 _proposalHash)
+    function markProposalWithExpiredResultAsInvalid(bytes32 _proposalHash)
         public
     {
-        uint32 _expirationDuration = answerExpiration;
-        require(_expirationDuration > 0, "Answers are valid forever");
+        uint32 _expirationDuration = resultExpiration;
+        require(_expirationDuration > 0, "Results are valid forever");
         bytes32 _queryId = queryIds[_proposalHash];
         require(_queryId != INVALIDATED, "Proposal is already invalidated");
         require(
@@ -393,12 +393,12 @@ contract TellorModule is Module, UsingTellor {
      * @notice There need to be at least 60 seconds between end of cooldown and expiration
      * @notice This can only be called by the owner
      */
-    function setAnswerExpiration(uint32 _expiration) public onlyOwner {
+    function setResultExpiration(uint32 _expiration) public onlyOwner {
         require(
             _expiration == 0 || _expiration - cooldown >= 60,
             "There need to be at least 60s between end of cooldown and expiration"
         );
-        answerExpiration = _expiration;
+        resultExpiration = _expiration;
     }
 
     /**
@@ -425,7 +425,7 @@ contract TellorModule is Module, UsingTellor {
         );
         avatar = _avatar;
         target = _target;
-        answerExpiration = _expiration;
+        resultExpiration = _expiration;
         cooldown = _cooldown;
 
         transferOwnership(_owner);

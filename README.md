@@ -48,13 +48,13 @@ Therefore we can simplify it to the following statement: The `nonce` of a Tellor
 
 The Tellor Module requires proposal transactions are successful (e.g. transactions should not internally revert for any reason). If any of the transactions of a proposal fail, it will not be possible to continue with the execution of the following transactions. This is to prevent subsequent transactions being executed in a scenario in which earlier transactions failed due to the gas limit being too low or due to other errors.
 
-Transactions that failed will _not_ be marked as executed, and therefore, they can be executed at any later point in time. This is a potential risk, and therefore it is recommended to either set an answer expiration time or invalidate the proposal (e.g. via another proposal).
+Transactions that failed will _not_ be marked as executed, and therefore, they can be executed at any later point in time. This is a potential risk, and therefore it is recommended to either set an result expiration time or invalidate the proposal (e.g. via another proposal).
 
-### Answer expiration
+### Result expiration
 
-The Tellor Module can be configured so that positive answers will expire after a certain time. This can be done by calling `setAnswerExpiration` with a duration in seconds. If the transactions related to the proposal are not executed before the answer expires, it will not be possible to execute them. This is useful in the case of transactions that revert and therefore cannot be executed in order to prevent them from being unexpectedly executed in the future. Negative answers (no or invalid) cannot expire.
+The Tellor Module can be configured so that positive results will expire after a certain time. This can be done by calling `setResultExpiration` with a duration in seconds. If the transactions related to the proposal are not executed before the result expires, it will not be possible to execute them. This is useful in the case of transactions that revert and therefore cannot be executed in order to prevent them from being unexpectedly executed in the future. Negative results (no or invalid) cannot expire.
 
-Note: If the expiration time is set to `0`, answers will never expire. This also means answers that expired before will become available again. To prevent this, it is recommended to call `markProposalWithExpiredAnswerAsInvalid` immediately after any proposal expires (or on all outstanding expired answers prior to setting the expiration date to `0`). This will mark a proposal with an expired answer as invalid. This method can be called by anyone.
+Note: If the expiration time is set to `0`, results will never expire. This also means results that expired before will become available again. To prevent this, it is recommended to call `markProposalWithExpiredResultAsInvalid` immediately after any proposal expires (or on all outstanding expired results prior to setting the expiration date to `0`). This will mark a proposal with an expired result as invalid. This method can be called by anyone.
 
 ### EIP-712 details
 

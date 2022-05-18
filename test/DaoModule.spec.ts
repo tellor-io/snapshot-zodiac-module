@@ -177,10 +177,10 @@ describe("TellorModuleERC20", async () => {
     });
   });
 
-  describe("setAnswerExpiration", async () => {
+  describe("setResultExpiration", async () => {
     it("throws if Ownable: caller is not the owner", async () => {
       const { module } = await setupTestWithTestAvatar();
-      await expect(module.setAnswerExpiration(2)).to.be.revertedWith(
+      await expect(module.setResultExpiration(2)).to.be.revertedWith(
         "Ownable: caller is not the owner"
       );
     });
@@ -188,18 +188,18 @@ describe("TellorModuleERC20", async () => {
     it("throws if not enough time between cooldown and expiration", async () => {
       const { module, avatar } = await setupTestWithTestAvatar();
 
-      const setAnswerExpiration = module.interface.encodeFunctionData(
-        "setAnswerExpiration",
+      const setResultExpiration = module.interface.encodeFunctionData(
+        "setResultExpiration",
         [40]
       );
       await expect(
-        avatar.exec(module.address, 0, setAnswerExpiration)
+        avatar.exec(module.address, 0, setResultExpiration)
       ).to.be.revertedWith(
         "There need to be at least 60s between end of cooldown and expiration"
       );
 
       const setAnswerExpirationInvalid = module.interface.encodeFunctionData(
-        "setAnswerExpiration",
+        "setResultExpiration",
         [99]
       );
       await avatar.exec(module.address, 0, setAnswerExpirationInvalid);
@@ -258,7 +258,7 @@ describe("TellorModuleERC20", async () => {
       );
 
       await expect(module.addProposal(id, [txHash]))
-        .to.emit(module, "ProposalQuestionCreated")
+        .to.emit(module, "ProposalAdded")
         .withArgs(queryId, id);
 
       expect(await module.queryIds(proposalHash)).to.be.deep.equals(
@@ -343,7 +343,7 @@ describe("TellorModuleERC20", async () => {
       );
 
       await expect(module.addProposal(id, [txHash]))
-        .to.emit(module, "ProposalQuestionCreated")
+        .to.emit(module, "ProposalAdded")
         .withArgs(queryId, id);
 
       expect(await module.queryIds(proposalHash)).to.be.deep.equals(
@@ -362,7 +362,7 @@ describe("TellorModuleERC20", async () => {
     });
   });
 
-  describe("markProposalWithExpiredAnswerAsInvalid", async () => {
+  describe("markProposalWithExpiredResultAsInvalid", async () => {
     it("throws if result cannot expire", async () => {
       const { module } = await setupTestWithTestAvatar();
 
@@ -377,18 +377,18 @@ describe("TellorModuleERC20", async () => {
       );
 
       await expect(
-        module.markProposalWithExpiredAnswerAsInvalid(proposalHash)
-      ).to.be.revertedWith("Answers are valid forever");
+        module.markProposalWithExpiredResultAsInvalid(proposalHash)
+      ).to.be.revertedWith("Results are valid forever");
     });
 
     it("throws if result is already invalidated", async () => {
       const { module, avatar } = await setupTestWithTestAvatar();
 
-      const setAnswerExpiration = module.interface.encodeFunctionData(
-        "setAnswerExpiration",
+      const setResultExpiration = module.interface.encodeFunctionData(
+        "setResultExpiration",
         [90]
       );
-      await avatar.exec(module.address, 0, setAnswerExpiration);
+      await avatar.exec(module.address, 0, setResultExpiration);
 
       const id = "some_random_id";
       const tx = {
@@ -417,18 +417,18 @@ describe("TellorModuleERC20", async () => {
       await avatar.exec(module.address, 0, markProposalAsInvalidByHash);
 
       await expect(
-        module.markProposalWithExpiredAnswerAsInvalid(proposalHash)
+        module.markProposalWithExpiredResultAsInvalid(proposalHash)
       ).to.be.revertedWith("Proposal is already invalidated");
     });
 
     it("throws if proposal is unknown", async () => {
       const { module, avatar } = await setupTestWithTestAvatar();
 
-      const setAnswerExpiration = module.interface.encodeFunctionData(
-        "setAnswerExpiration",
+      const setResultExpiration = module.interface.encodeFunctionData(
+        "setResultExpiration",
         [90]
       );
-      await avatar.exec(module.address, 0, setAnswerExpiration);
+      await avatar.exec(module.address, 0, setResultExpiration);
 
       const id = "some_random_id";
       const txHash = ethers.utils.solidityKeccak256(
@@ -441,18 +441,18 @@ describe("TellorModuleERC20", async () => {
       );
 
       await expect(
-        module.markProposalWithExpiredAnswerAsInvalid(proposalHash)
+        module.markProposalWithExpiredResultAsInvalid(proposalHash)
       ).to.be.revertedWith("No query id set for provided proposal");
     });
 
     it("throws if result was not accepted", async () => {
       const { mock, module, avatar, oracle } = await setupTestWithTestAvatar();
 
-      const setAnswerExpiration = module.interface.encodeFunctionData(
-        "setAnswerExpiration",
+      const setResultExpiration = module.interface.encodeFunctionData(
+        "setResultExpiration",
         [90]
       );
-      await avatar.exec(module.address, 0, setAnswerExpiration);
+      await avatar.exec(module.address, 0, setResultExpiration);
 
       const id = "some_random_id";
       const tx = {
@@ -501,18 +501,18 @@ describe("TellorModuleERC20", async () => {
       );
 
       await expect(
-        module.markProposalWithExpiredAnswerAsInvalid(proposalHash)
+        module.markProposalWithExpiredResultAsInvalid(proposalHash)
       ).to.be.revertedWith("Transaction was not approved");
     });
 
     it("throws if result is not expired", async () => {
       const { mock, module, avatar, oracle } = await setupTestWithTestAvatar();
 
-      const setAnswerExpiration = module.interface.encodeFunctionData(
-        "setAnswerExpiration",
+      const setResultExpiration = module.interface.encodeFunctionData(
+        "setResultExpiration",
         [90]
       );
-      await avatar.exec(module.address, 0, setAnswerExpiration);
+      await avatar.exec(module.address, 0, setResultExpiration);
 
       const id = "some_random_id";
       const tx = {
@@ -567,18 +567,18 @@ describe("TellorModuleERC20", async () => {
       );
 
       await expect(
-        module.markProposalWithExpiredAnswerAsInvalid(proposalHash)
+        module.markProposalWithExpiredResultAsInvalid(proposalHash)
       ).to.be.revertedWith("Result has not expired yet");
     });
 
     it("can mark proposal with expired accepted result as invalid", async () => {
       const { mock, module, avatar, oracle } = await setupTestWithTestAvatar();
 
-      const setAnswerExpiration = module.interface.encodeFunctionData(
-        "setAnswerExpiration",
+      const setResultExpiration = module.interface.encodeFunctionData(
+        "setResultExpiration",
         [90]
       );
-      await avatar.exec(module.address, 0, setAnswerExpiration);
+      await avatar.exec(module.address, 0, setResultExpiration);
 
       const id = "some_random_id";
       const tx = {
@@ -634,7 +634,7 @@ describe("TellorModuleERC20", async () => {
 
       await h.advanceTime(91);
 
-      await module.markProposalWithExpiredAnswerAsInvalid(proposalHash);
+      await module.markProposalWithExpiredResultAsInvalid(proposalHash);
       expect(await module.queryIds(proposalHash)).to.be.deep.equals(
         INVALIDATED_STATE
       );
@@ -819,7 +819,7 @@ describe("TellorModuleERC20", async () => {
       );
 
       await expect(module.addProposal(id, [txHash]))
-        .to.emit(module, "ProposalQuestionCreated")
+        .to.emit(module, "ProposalAdded")
         .withArgs(queryId, id);
 
       expect(await module.queryIds(proposalHash)).to.be.deep.equals(
@@ -844,7 +844,7 @@ describe("TellorModuleERC20", async () => {
     );
 
     await expect(module.addProposal(id, [txHash]))
-      .to.emit(module, "ProposalQuestionCreated")
+      .to.emit(module, "ProposalAdded")
       .withArgs(queryId, id);
 
     expect(await module.queryIds(proposalHash)).to.be.deep.equals(
@@ -1510,11 +1510,11 @@ describe("TellorModuleERC20", async () => {
 
       await user1.sendTransaction({ to: avatar.address, value: 100 });
       await avatar.setModule(module.address);
-      const setAnswerExpiration = module.interface.encodeFunctionData(
-        "setAnswerExpiration",
+      const setResultExpiration = module.interface.encodeFunctionData(
+        "setResultExpiration",
         [90]
       );
-      await avatar.exec(module.address, 0, setAnswerExpiration);
+      await avatar.exec(module.address, 0, setResultExpiration);
 
       const id = "some_random_id";
       const tx = {
@@ -1580,7 +1580,7 @@ describe("TellorModuleERC20", async () => {
 
       // Reset result expiration time, so that we can execute the transaction
       const resetAnswerExpiration = module.interface.encodeFunctionData(
-        "setAnswerExpiration",
+        "setResultExpiration",
         [0]
       );
       await avatar.exec(module.address, 0, resetAnswerExpiration);

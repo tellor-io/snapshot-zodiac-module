@@ -85,6 +85,6 @@ describe("Module works with factory", () => {
       newProxyAddress
     );
     expect(await newProxy.cooldown()).to.be.eq(cooldown);
-    expect(await newProxy.answerExpiration()).to.be.eq(expiration);
+    expect(await newProxy.resultExpiration()).to.be.eq(expiration);
   });
 });
