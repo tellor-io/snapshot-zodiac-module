@@ -6,10 +6,7 @@ import "usingtellor/contracts/UsingTellor.sol";
 
 contract TellorModule is Module, UsingTellor {
     // Events
-    event ProposalAdded(
-        bytes32 indexed queryId,
-        string indexed proposalId
-    );
+    event ProposalAdded(bytes32 indexed queryId, string indexed proposalId);
 
     event TellorModuleSetup(
         address indexed initiator,
@@ -222,8 +219,8 @@ contract TellorModule is Module, UsingTellor {
         );
         // Mark transaction as executed
         executedProposalTransactions[_proposalHash][_txHash] = true;
-        // Execute the transaction via the target.
 
+        // Execute the transaction via the target.
         require(
             exec(_to, _value, _data, _operation),
             "Module transaction failed"
@@ -297,7 +294,7 @@ contract TellorModule is Module, UsingTellor {
     }
 
     /**
-     * @dev Generates the data for the module transaction hash (required for signing)
+     * @dev Generates the hash for the module transaction
      * @param _to Target of the transaction
      * @param _value Wei value of the transaction
      * @param _data Data of the transaction
