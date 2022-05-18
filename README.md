@@ -48,7 +48,7 @@ Therefore we can simplify it to the following statement: The `nonce` of a Tellor
 
 The Tellor Module requires proposal transactions are successful (e.g. transactions should not internally revert for any reason). If any of the transactions of a proposal fail, it will not be possible to continue with the execution of the following transactions. This is to prevent subsequent transactions being executed in a scenario in which earlier transactions failed due to the gas limit being too low or due to other errors.
 
-Transactions that failed will _not_ be marked as executed, and therefore, they can be executed at any later point in time. This is a potential risk, and therefore it is recommended to either set an result expiration time or invalidate the proposal (e.g. via another proposal).
+Transactions that failed will _not_ be marked as executed, and therefore, they can be executed at any later point in time. This is a potential risk, and therefore it is recommended to either set a result expiration time or invalidate the proposal (e.g. via another proposal).
 
 ### Result expiration
 
