@@ -44,9 +44,6 @@ The `nonce` of a transaction makes it possible to have two transactions with the
 
 Therefore we can simplify it to the following statement: The `nonce` of a Tellor Module transaction is equal to the `index` of that transaction's hash in the `txHashes` array.
 
-<!-- #### Proposal nonce
-There is a chance that a question is marked invalid on the oracle (e.g. if it is asked too early). In this case it should be possible to ask the question again, and we need to be able to generate a new question ID. For this it is possible to provide the next higher `nonce` compared to the last invalidated proposal. So in case the first proposal (with the default `nonce` of `0`) was marked invalid on the oracle, a new proposal can be submitted with the `nonce` of `1`. -->
-
 ### Failed transactions
 
 The Tellor Module requires proposal transactions are successful (e.g. transactions should not internally revert for any reason). If any of the transactions of a proposal fail, it will not be possible to continue with the execution of the following transactions. This is to prevent subsequent transactions being executed in a scenario in which earlier transactions failed due to the gas limit being too low or due to other errors.

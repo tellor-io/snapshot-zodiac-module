@@ -35,7 +35,7 @@ const getProposalDetails = async (module: Contract, path: string): Promise<Exten
     }
 }
 
-task("addProposal", "Adds a proposal question")
+task("addProposal", "Adds a proposal")
         .addParam("module", "Address of the module", undefined, types.string)
         .setAction(async (taskArgs, hardhatRuntime) => {
             const ethers = hardhatRuntime.ethers;
@@ -61,7 +61,7 @@ task("addProposal", "Adds a proposal question")
             console.log("Transaction:", tx1.hash);
         });
 
-task("showProposal", "Shows proposal question details")
+task("showProposal", "Shows proposal details")
         .addParam("module", "Address of the module", undefined, types.string)
         .addParam("proposalFile", "File with proposal information json", undefined, types.inputFile)
         .setAction(async (taskArgs, hardhatRuntime) => {

@@ -84,7 +84,7 @@ describe("Module works with factory", () => {
       "TellorModule",
       newProxyAddress
     );
-    expect(await newProxy.questionCooldown()).to.be.eq(cooldown);
+    expect(await newProxy.cooldown()).to.be.eq(cooldown);
     expect(await newProxy.answerExpiration()).to.be.eq(expiration);
   });
 });

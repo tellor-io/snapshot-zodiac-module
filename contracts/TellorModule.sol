@@ -7,7 +7,7 @@ import "usingtellor/contracts/UsingTellor.sol";
 contract TellorModule is Module, UsingTellor {
     // Events
     event ProposalQuestionCreated(
-        bytes32 indexed questionId,
+        bytes32 indexed queryId,
         string indexed proposalId
     );
 
@@ -26,17 +26,17 @@ contract TellorModule is Module, UsingTellor {
     //     "EIP712Domain(uint256 chainId,address verifyingContract)"
     // );
 
-    // Mapping of questionHash to transactionHash to execution state
+    // Mapping of proposalHash to transactionHash to execution state
     mapping(bytes32 => mapping(bytes32 => bool))
         public executedProposalTransactions;
 
     bytes32 public constant INVALIDATED =
         0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
 
-    uint32 public questionCooldown;
+    uint32 public cooldown;
 
-    // Mapping of question hash to question id. Special case: INVALIDATED for question hashes that have been invalidated
-    mapping(bytes32 => bytes32) public questionIds;
+    // Mapping of proposal hash to proposal id. Special case: INVALIDATED for proposal hashes that have been invalidated
+    mapping(bytes32 => bytes32) public queryIds;
 
     bytes32 public constant TRANSACTION_TYPEHASH =
         0x72e9670a7ee00f5fbf1049b8c38e3f22fab7e9b85029e85cf9412f17fdd5c2ad;
@@ -51,8 +51,8 @@ contract TellorModule is Module, UsingTellor {
      * @param _avatar Address of the avatar (e.g. a Safe)
      * @param _target Address of the contract that will call exec function
      * @param _tellorAddress Address of the Tellor oracle contract
-     * @param _cooldown Cooldown in seconds that should be required after a oracle provided answer
-     * @param _expiration Duration that a positive answer of the oracle is valid in seconds (or 0 if valid forever)
+     * @param _cooldown Cooldown in seconds that should be required after a oracle provided result
+     * @param _expiration Duration that a positive result of the oracle is valid in seconds (or 0 if valid forever)
      * @notice There need to be at least 60 seconds between end of cooldown and expiration
      */
     constructor(
@@ -73,18 +73,33 @@ contract TellorModule is Module, UsingTellor {
         setUp(initParams);
     }
 
+    /**
+     * @dev Function to add a proposal that should be considered for execution
+     * @param _proposalId Id that should identify the proposal uniquely
+     * @param _txHashes EIP-712 hashes of the transactions that should be executed
+     */
     function addProposal(string memory _proposalId, bytes32[] memory _txHashes)
         public
     {
-        _addProposalWithNonce(_proposalId, _txHashes, 0);
+        // We generate the proposal string used for the oracle
+        string memory _proposal = buildProposal(_proposalId, _txHashes);
+        bytes32 _proposalHash = keccak256(bytes(_proposal));
+        require(
+            queryIds[_proposalHash] == bytes32(0),
+            "Proposal has already been submitted"
+        );
+        bytes32 _queryId = getQueryId(_proposalId);
+        // Set the proposal hash for this query id
+        queryIds[_proposalHash] = _queryId;
+        emit ProposalQuestionCreated(_queryId, _proposalId);
     }
 
     /**
-     * @dev Build the question by combining the proposalId and the hex string of the hash of the txHashes
+     * @dev Build the proposal by combining the proposalId and the hex string of the hash of the txHashes
      * @param _proposalId Id of the proposal that proposes to execute the transactions represented by the txHashes
      * @param _txHashes EIP-712 Hashes of the transactions that should be executed
      */
-    function buildQuestion(
+    function buildProposal(
         string memory _proposalId,
         bytes32[] memory _txHashes
     ) public pure returns (string memory) {
@@ -143,19 +158,19 @@ contract TellorModule is Module, UsingTellor {
         Enum.Operation _operation,
         uint256 _txIndex
     ) public {
-        // We use the hash of the question to check the execution state, as the other parameters might change, but the question not
-        bytes32 _questionHash = keccak256(
-            bytes(buildQuestion(_proposalId, _txHashes))
+        // We use the hash of the proposal to check the execution state, as the other parameters might change, but the proposal not
+        bytes32 _proposalHash = keccak256(
+            bytes(buildProposal(_proposalId, _txHashes))
         );
-        // Lookup question id for this proposal
-        bytes32 _questionId = questionIds[_questionHash];
+        // Lookup query id for this proposal
+        bytes32 _queryId = queryIds[_proposalHash];
 
-        // Question hash needs to set to be eligible for execution
+        // Proposal hash needs to set to be eligible for execution
         require(
-            _questionId != bytes32(0),
-            "No question id set for provided proposal"
+            _queryId != bytes32(0),
+            "No query id set for provided proposal"
         );
-        require(_questionId != INVALIDATED, "Proposal has been invalidated");
+        require(_queryId != INVALIDATED, "Proposal has been invalidated");
 
         bytes32 _txHash = getTransactionHash(
             _to,
@@ -171,13 +186,13 @@ contract TellorModule is Module, UsingTellor {
             bool _ifRetrieve,
             bytes memory _valueRetrieved,
             uint256 _timestampReceived
-        ) = getDataBefore(_questionId, block.timestamp);
+        ) = getDataBefore(_queryId, block.timestamp);
 
         require(_ifRetrieve, "Data not retrieved");
 
-        // The answer is valid in the time after the cooldown and before the expiration time (if set).
+        // The result is valid in the time after the cooldown and before the expiration time (if set).
         require(
-            _timestampReceived + uint256(questionCooldown) < block.timestamp,
+            _timestampReceived + uint256(cooldown) < block.timestamp,
             "Wait for additional cooldown"
         );
 
@@ -189,24 +204,24 @@ contract TellorModule is Module, UsingTellor {
         require(
             _expiration == 0 ||
                 _timestampReceived + uint256(_expiration) >= block.timestamp,
-            "Answer has expired"
+            "Result has expired"
         );
 
-        // Check this is either the first transaction in the list or that the previous question was already approved
+        // Check this is either the first transaction in the list or that the previous proposal was already approved
         require(
             _txIndex == 0 ||
-                executedProposalTransactions[_questionHash][
+                executedProposalTransactions[_proposalHash][
                     _txHashes[_txIndex - 1]
                 ],
             "Previous transaction not executed yet"
         );
-        // Check that this question was not executed yet
+        // Check that this proposal was not executed yet
         require(
-            !executedProposalTransactions[_questionHash][_txHash],
+            !executedProposalTransactions[_proposalHash][_txHash],
             "Cannot execute transaction again"
         );
         // Mark transaction as executed
-        executedProposalTransactions[_questionHash][_txHash] = true;
+        executedProposalTransactions[_proposalHash][_txHash] = true;
         // Execute the transaction via the target.
 
         require(
@@ -216,21 +231,24 @@ contract TellorModule is Module, UsingTellor {
     }
 
     /**
-     * @dev Generate the question id.
+     * @dev Generate the query id.
+     * @param _proposalId Id that should identify the proposal uniquely
      * @notice It is required that this is the same as for the oracle implementation used.
      */
-    function getQuestionId(string memory _proposalId)
+    function getQueryId(string memory _proposalId)
         public
         pure
         returns (bytes32)
     {
-        bytes32 _questionId = keccak256(
+        bytes32 _queryId = keccak256(
             abi.encode("Snapshot", abi.encode(_proposalId))
         );
-        return _questionId;
+        return _queryId;
     }
 
-    /// @dev Returns the chain id used by this contract.
+    /**
+     * @dev Returns the chain id used by this contract.
+     */
     function getChainId() public view returns (uint256) {
         uint256 _id;
         // solium-disable-next-line security/no-inline-assembly
@@ -240,7 +258,14 @@ contract TellorModule is Module, UsingTellor {
         return _id;
     }
 
-    /// @dev Generates the data for the module transaction hash (required for signing)
+    /**
+     * @dev Generates the data for the module transaction hash (required for signing)
+     * @param _to Target of the transaction that should be executed
+     * @param _value Wei value of the transaction that should be executed
+     * @param _data Data of the transaction that should be executed
+     * @param _operation Operation (Call or Delegatecall) of the transaction that should be executed
+     * @param _nonce Nonce of the transaction that should be executed
+     */
     function generateTransactionHashData(
         address _to,
         uint256 _value,
@@ -271,6 +296,14 @@ contract TellorModule is Module, UsingTellor {
             );
     }
 
+    /**
+     * @dev Generates the data for the module transaction hash (required for signing)
+     * @param _to Target of the transaction
+     * @param _value Wei value of the transaction
+     * @param _data Data of the transaction
+     * @param _operation Operation (Call or Delegatecall) of the transaction
+     * @param _nonce Nonce of the transaction
+     */
     function getTransactionHash(
         address _to,
         uint256 _value,
@@ -300,43 +333,43 @@ contract TellorModule is Module, UsingTellor {
         string memory _proposalId,
         bytes32[] memory _txHashes // owner only is checked in markProposalAsInvalidByHash(bytes32)
     ) public {
-        string memory _question = buildQuestion(_proposalId, _txHashes);
-        bytes32 _questionHash = keccak256(bytes(_question));
-        markProposalAsInvalidByHash(_questionHash);
+        string memory _proposal = buildProposal(_proposalId, _txHashes);
+        bytes32 _proposalHash = keccak256(bytes(_proposal));
+        markProposalAsInvalidByHash(_proposalHash);
     }
 
     /**
-     * @dev @dev Marks a question hash as invalid, preventing execution of the connected transactions
-     * @param _questionHash Question hash calculated based on the proposal id and txHashes
+     * @dev Marks a proposal hash as invalid, preventing execution of the connected transactions
+     * @param _proposalHash Proposal hash calculated based on the proposal id and txHashes
      * @notice This can only be called by the owner
      */
-    function markProposalAsInvalidByHash(bytes32 _questionHash)
+    function markProposalAsInvalidByHash(bytes32 _proposalHash)
         public
         onlyOwner
     {
-        questionIds[_questionHash] = INVALIDATED;
+        queryIds[_proposalHash] = INVALIDATED;
     }
 
     /**
-     * @dev Marks a proposal with an expired answer as invalid, preventing execution of the connected transactions
-     * @param _questionHash Question hash calculated based on the proposal id and txHashes
+     * @dev Marks a proposal with an expired result as invalid, preventing execution of the connected transactions
+     * @param _proposalHash Proposal hash calculated based on the proposal id and txHashes
      */
-    function markProposalWithExpiredAnswerAsInvalid(bytes32 _questionHash)
+    function markProposalWithExpiredAnswerAsInvalid(bytes32 _proposalHash)
         public
     {
         uint32 _expirationDuration = answerExpiration;
         require(_expirationDuration > 0, "Answers are valid forever");
-        bytes32 _questionId = questionIds[_questionHash];
-        require(_questionId != INVALIDATED, "Proposal is already invalidated");
+        bytes32 _queryId = queryIds[_proposalHash];
+        require(_queryId != INVALIDATED, "Proposal is already invalidated");
         require(
-            _questionId != bytes32(0),
-            "No question id set for provided proposal"
+            _queryId != bytes32(0),
+            "No query id set for provided proposal"
         );
         (
             bool _ifRetrieve,
             bytes memory _valueRetrieved,
             uint256 _timestampRetrieved
-        ) = getDataBefore(_questionId, block.timestamp);
+        ) = getDataBefore(_queryId, block.timestamp);
 
         require(_ifRetrieve, "Data not retrieved");
 
@@ -347,35 +380,42 @@ contract TellorModule is Module, UsingTellor {
         require(
             _timestampRetrieved + uint256(_expirationDuration) <
                 block.timestamp,
-            "Answer has not expired yet"
+            "Result has not expired yet"
         );
 
-        questionIds[_questionHash] = INVALIDATED;
+        queryIds[_proposalHash] = INVALIDATED;
     }
 
     /**
-     * @dev Sets the duration for which a positive answer is valid.
-     * @param _expiration Duration that a positive answer of the oracle is valid in seconds (or 0 if valid forever)
-     * @notice A proposal with an expired answer is the same as a proposal that has been marked invalid
+     * @dev Sets the duration for which a positive result is valid.
+     * @param _expiration Duration that a positive result of the oracle is valid in seconds (or 0 if valid forever)
+     * @notice A proposal with an expired result is the same as a proposal that has been marked invalid
      * @notice There need to be at least 60 seconds between end of cooldown and expiration
      * @notice This can only be called by the owner
      */
     function setAnswerExpiration(uint32 _expiration) public onlyOwner {
         require(
-            _expiration == 0 || _expiration - questionCooldown >= 60,
+            _expiration == 0 || _expiration - cooldown >= 60,
             "There need to be at least 60s between end of cooldown and expiration"
         );
         answerExpiration = _expiration;
     }
 
-    function setUp(bytes memory initParams) public override {
+    /**
+     * @dev Initializes the contract with the given parameters.
+     * @param _initParams Initialization parameters for the contract
+     */
+    function setUp(bytes memory _initParams) public override {
         (
             address _owner,
             address _avatar,
             address _target,
             uint32 _cooldown,
             uint32 _expiration
-        ) = abi.decode(initParams, (address, address, address, uint32, uint32));
+        ) = abi.decode(
+                _initParams,
+                (address, address, address, uint32, uint32)
+            );
         __Ownable_init();
         require(_avatar != address(0), "Avatar can not be zero address");
         require(_target != address(0), "Target can not be zero address");
@@ -386,7 +426,7 @@ contract TellorModule is Module, UsingTellor {
         avatar = _avatar;
         target = _target;
         answerExpiration = _expiration;
-        questionCooldown = _cooldown;
+        cooldown = _cooldown;
 
         transferOwnership(_owner);
 
@@ -394,44 +434,9 @@ contract TellorModule is Module, UsingTellor {
     }
 
     /**
-     * @dev Function to add a proposal that should be considered for execution
-     * @param _proposalId Id that should identify the proposal uniquely
-     * @param _txHashes EIP-712 hashes of the transactions that should be executed
-     * @param _nonce Nonce that should be used when asking the question on the oracle
+     * @dev converts bytes32 to string
+     * @param _bytes bytes32 to be converted
      */
-    function _addProposalWithNonce(
-        string memory _proposalId,
-        bytes32[] memory _txHashes,
-        uint256 _nonce
-    ) internal {
-        // We generate the question string used for the oracle
-        string memory _question = buildQuestion(_proposalId, _txHashes);
-        bytes32 _questionHash = keccak256(bytes(_question));
-        if (_nonce > 0) {
-            // Previous nonce must have been invalidated by the oracle.
-            // However, if the proposal was internally invalidated, it should not be possible to ask it again.
-            bytes32 _currentQuestionId = questionIds[_questionHash];
-            (bool _ifRetrieve, , ) = getDataBefore(
-                _currentQuestionId,
-                block.timestamp - questionCooldown
-            );
-            require(
-                _currentQuestionId != INVALIDATED,
-                "This proposal has been marked as invalid"
-            );
-            require(_ifRetrieve, "Data not retrieved");
-        } else {
-            require(
-                questionIds[_questionHash] == bytes32(0),
-                "Proposal has already been submitted"
-            );
-        }
-        bytes32 _questionId = getQuestionId(_proposalId);
-        // Set the question hash for this question id
-        questionIds[_questionHash] = _questionId;
-        emit ProposalQuestionCreated(_questionId, _proposalId);
-    }
-
     function _bytes32ToAsciiString(bytes32 _bytes)
         internal
         pure
@@ -448,6 +453,10 @@ contract TellorModule is Module, UsingTellor {
         return string(s);
     }
 
+    /**
+     * @dev converts uint8 to char
+     * @param _b uint8 to be converted
+     */
     function _char(uint8 _b) internal pure returns (bytes1 c) {
         if (_b < 10) return bytes1(_b + 0x30);
         else return bytes1(_b + 0x57);

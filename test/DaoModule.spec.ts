@@ -148,7 +148,7 @@ describe("TellorModuleERC20", async () => {
       );
     });
 
-    it("answer expiration can be 0", async () => {
+    it("result expiration can be 0", async () => {
       const Module = await hre.ethers.getContractFactory("TellorModule");
       await Module.deploy(
         user1.address,
@@ -204,7 +204,7 @@ describe("TellorModuleERC20", async () => {
       );
       await avatar.exec(module.address, 0, setAnswerExpirationInvalid);
 
-      expect(await module.questionCooldown()).to.be.equals(23);
+      expect(await module.cooldown()).to.be.equals(23);
     });
   });
 
@@ -220,14 +220,14 @@ describe("TellorModuleERC20", async () => {
       ).to.be.revertedWith("Ownable: caller is not the owner");
     });
 
-    it("marks unknown question id as invalid", async () => {
+    it("marks unknown query id as invalid", async () => {
       const { module, avatar } = await setupTestWithTestAvatar();
 
       const randomHash = ethers.utils.solidityKeccak256(
         ["string"],
         ["some_tx_data"]
       );
-      expect(await module.questionIds(randomHash)).to.be.equals(ZERO_STATE);
+      expect(await module.queryIds(randomHash)).to.be.equals(ZERO_STATE);
 
       const calldata = module.interface.encodeFunctionData(
         "markProposalAsInvalidByHash",
@@ -235,43 +235,43 @@ describe("TellorModuleERC20", async () => {
       );
       await avatar.exec(module.address, 0, calldata);
 
-      expect(await module.questionIds(randomHash)).to.be.deep.equals(
+      expect(await module.queryIds(randomHash)).to.be.deep.equals(
         INVALIDATED_STATE
       );
     });
 
-    it("marks known question id as invalid", async () => {
+    it("marks known query id as invalid", async () => {
       const { module, mock, oracle, avatar } = await setupTestWithTestAvatar();
       const id = "some_random_id";
       const txHash = ethers.utils.solidityKeccak256(
         ["string"],
         ["some_tx_data"]
       );
-      const question = await module.buildQuestion(id, [txHash]);
-      const questionId = await module.getQuestionId(id);
-      const questionHash = ethers.utils.keccak256(
-        ethers.utils.toUtf8Bytes(question)
+      const proposal = await module.buildProposal(id, [txHash]);
+      const queryId = await module.getQueryId(id);
+      const proposalHash = ethers.utils.keccak256(
+        ethers.utils.toUtf8Bytes(proposal)
       );
       await mock.givenMethodReturnUint(
-        module.interface.getSighash("getQuestionId"),
-        questionId
+        module.interface.getSighash("getQueryId"),
+        queryId
       );
 
       await expect(module.addProposal(id, [txHash]))
         .to.emit(module, "ProposalQuestionCreated")
-        .withArgs(questionId, id);
+        .withArgs(queryId, id);
 
-      expect(await module.questionIds(questionHash)).to.be.deep.equals(
-        questionId
+      expect(await module.queryIds(proposalHash)).to.be.deep.equals(
+        queryId
       );
 
       const calldata = module.interface.encodeFunctionData(
         "markProposalAsInvalidByHash",
-        [questionHash]
+        [proposalHash]
       );
       await avatar.exec(module.address, 0, calldata);
 
-      expect(await module.questionIds(questionHash)).to.be.deep.equals(
+      expect(await module.queryIds(proposalHash)).to.be.deep.equals(
         INVALIDATED_STATE
       );
     });
@@ -289,7 +289,7 @@ describe("TellorModuleERC20", async () => {
       ).to.be.revertedWith("Ownable: caller is not the owner");
     });
 
-    it("marks unknown question id as invalid", async () => {
+    it("marks unknown query id as invalid", async () => {
       const { module, avatar } = await setupTestWithTestAvatar();
 
       const id = "some_random_id";
@@ -307,11 +307,11 @@ describe("TellorModuleERC20", async () => {
         tx.operation,
         tx.nonce
       );
-      const question = await module.buildQuestion(id, [txHash]);
-      const questionHash = ethers.utils.keccak256(
-        ethers.utils.toUtf8Bytes(question)
+      const proposal = await module.buildProposal(id, [txHash]);
+      const proposalHash = ethers.utils.keccak256(
+        ethers.utils.toUtf8Bytes(proposal)
       );
-      expect(await module.questionIds(questionHash)).to.be.equals(ZERO_STATE);
+      expect(await module.queryIds(proposalHash)).to.be.equals(ZERO_STATE);
 
       const calldata = module.interface.encodeFunctionData(
         "markProposalAsInvalid",
@@ -319,35 +319,35 @@ describe("TellorModuleERC20", async () => {
       );
       await avatar.exec(module.address, 0, calldata);
 
-      expect(await module.questionIds(questionHash)).to.be.deep.equals(
+      expect(await module.queryIds(proposalHash)).to.be.deep.equals(
         INVALIDATED_STATE
       );
     });
 
-    it("marks known question id as invalid", async () => {
+    it("marks known query id as invalid", async () => {
       const { module, mock, oracle, avatar } = await setupTestWithTestAvatar();
       const id = "some_random_id";
       const txHash = ethers.utils.solidityKeccak256(
         ["string"],
         ["some_tx_data"]
       );
-      const question = await module.buildQuestion(id, [txHash]);
-      const questionId = await module.getQuestionId(id);
+      const proposal = await module.buildProposal(id, [txHash]);
+      const queryId = await module.getQueryId(id);
 
-      const questionHash = ethers.utils.keccak256(
-        ethers.utils.toUtf8Bytes(question)
+      const proposalHash = ethers.utils.keccak256(
+        ethers.utils.toUtf8Bytes(proposal)
       );
       await mock.givenMethodReturnUint(
-        module.interface.getSighash("getQuestionId"),
-        questionId
+        module.interface.getSighash("getQueryId"),
+        queryId
       );
 
       await expect(module.addProposal(id, [txHash]))
         .to.emit(module, "ProposalQuestionCreated")
-        .withArgs(questionId, id);
+        .withArgs(queryId, id);
 
-      expect(await module.questionIds(questionHash)).to.be.deep.equals(
-        questionId
+      expect(await module.queryIds(proposalHash)).to.be.deep.equals(
+        queryId
       );
 
       const calldata = module.interface.encodeFunctionData(
@@ -356,14 +356,14 @@ describe("TellorModuleERC20", async () => {
       );
       await avatar.exec(module.address, 0, calldata);
 
-      expect(await module.questionIds(questionHash)).to.be.deep.equals(
+      expect(await module.queryIds(proposalHash)).to.be.deep.equals(
         INVALIDATED_STATE
       );
     });
   });
 
   describe("markProposalWithExpiredAnswerAsInvalid", async () => {
-    it("throws if answer cannot expire", async () => {
+    it("throws if result cannot expire", async () => {
       const { module } = await setupTestWithTestAvatar();
 
       const id = "some_random_id";
@@ -371,17 +371,17 @@ describe("TellorModuleERC20", async () => {
         ["string"],
         ["some_tx_data"]
       );
-      const question = await module.buildQuestion(id, [txHash]);
-      const questionHash = ethers.utils.keccak256(
-        ethers.utils.toUtf8Bytes(question)
+      const proposal = await module.buildProposal(id, [txHash]);
+      const proposalHash = ethers.utils.keccak256(
+        ethers.utils.toUtf8Bytes(proposal)
       );
 
       await expect(
-        module.markProposalWithExpiredAnswerAsInvalid(questionHash)
+        module.markProposalWithExpiredAnswerAsInvalid(proposalHash)
       ).to.be.revertedWith("Answers are valid forever");
     });
 
-    it("throws if answer is already invalidated", async () => {
+    it("throws if result is already invalidated", async () => {
       const { module, avatar } = await setupTestWithTestAvatar();
 
       const setAnswerExpiration = module.interface.encodeFunctionData(
@@ -405,23 +405,23 @@ describe("TellorModuleERC20", async () => {
         tx.operation,
         tx.nonce
       );
-      const question = await module.buildQuestion(id, [txHash]);
-      const questionHash = ethers.utils.keccak256(
-        ethers.utils.toUtf8Bytes(question)
+      const proposal = await module.buildProposal(id, [txHash]);
+      const proposalHash = ethers.utils.keccak256(
+        ethers.utils.toUtf8Bytes(proposal)
       );
 
       const markProposalAsInvalidByHash = module.interface.encodeFunctionData(
         "markProposalAsInvalidByHash",
-        [questionHash]
+        [proposalHash]
       );
       await avatar.exec(module.address, 0, markProposalAsInvalidByHash);
 
       await expect(
-        module.markProposalWithExpiredAnswerAsInvalid(questionHash)
+        module.markProposalWithExpiredAnswerAsInvalid(proposalHash)
       ).to.be.revertedWith("Proposal is already invalidated");
     });
 
-    it("throws if question is unknown", async () => {
+    it("throws if proposal is unknown", async () => {
       const { module, avatar } = await setupTestWithTestAvatar();
 
       const setAnswerExpiration = module.interface.encodeFunctionData(
@@ -435,17 +435,17 @@ describe("TellorModuleERC20", async () => {
         ["string"],
         ["some_tx_data"]
       );
-      const question = await module.buildQuestion(id, [txHash]);
-      const questionHash = ethers.utils.keccak256(
-        ethers.utils.toUtf8Bytes(question)
+      const proposal = await module.buildProposal(id, [txHash]);
+      const proposalHash = ethers.utils.keccak256(
+        ethers.utils.toUtf8Bytes(proposal)
       );
 
       await expect(
-        module.markProposalWithExpiredAnswerAsInvalid(questionHash)
-      ).to.be.revertedWith("No question id set for provided proposal");
+        module.markProposalWithExpiredAnswerAsInvalid(proposalHash)
+      ).to.be.revertedWith("No query id set for provided proposal");
     });
 
-    it("throws if answer was not accepted", async () => {
+    it("throws if result was not accepted", async () => {
       const { mock, module, avatar, oracle } = await setupTestWithTestAvatar();
 
       const setAnswerExpiration = module.interface.encodeFunctionData(
@@ -469,16 +469,16 @@ describe("TellorModuleERC20", async () => {
         tx.operation,
         tx.nonce
       );
-      const question = await module.buildQuestion(id, [txHash]);
-      const questionId = await module.getQuestionId(id);
+      const proposal = await module.buildProposal(id, [txHash]);
+      const queryId = await module.getQueryId(id);
 
-      const questionHash = ethers.utils.keccak256(
-        ethers.utils.toUtf8Bytes(question)
+      const proposalHash = ethers.utils.keccak256(
+        ethers.utils.toUtf8Bytes(proposal)
       );
 
       await mock.givenMethodReturnUint(
-        module.interface.getSighash("getQuestionId"),
-        questionId
+        module.interface.getSighash("getQueryId"),
+        queryId
       );
       await mock.givenMethodReturnUint(
         module.interface.getSighash("getDataBefore"),
@@ -492,7 +492,6 @@ describe("TellorModuleERC20", async () => {
         ["string", "bytes"],
         ["Snapshot", queryDataArgs]
       );
-      const queryId = ethers.utils.keccak256(queryData);
 
       await oracle.submitValue(
         queryId,
@@ -502,11 +501,11 @@ describe("TellorModuleERC20", async () => {
       );
 
       await expect(
-        module.markProposalWithExpiredAnswerAsInvalid(questionHash)
+        module.markProposalWithExpiredAnswerAsInvalid(proposalHash)
       ).to.be.revertedWith("Transaction was not approved");
     });
 
-    it("throws if answer is not expired", async () => {
+    it("throws if result is not expired", async () => {
       const { mock, module, avatar, oracle } = await setupTestWithTestAvatar();
 
       const setAnswerExpiration = module.interface.encodeFunctionData(
@@ -530,11 +529,11 @@ describe("TellorModuleERC20", async () => {
         tx.operation,
         tx.nonce
       );
-      const question = await module.buildQuestion(id, [txHash]);
-      const questionId = await module.getQuestionId(id);
+      const proposal = await module.buildProposal(id, [txHash]);
+      const queryId = await module.getQueryId(id);
 
-      const questionHash = ethers.utils.keccak256(
-        ethers.utils.toUtf8Bytes(question)
+      const proposalHash = ethers.utils.keccak256(
+        ethers.utils.toUtf8Bytes(proposal)
       );
 
       const block = await ethers.provider.getBlock("latest");
@@ -543,8 +542,8 @@ describe("TellorModuleERC20", async () => {
         block.timestamp
       );
       await mock.givenMethodReturnUint(
-        module.interface.getSighash("getQuestionId"),
-        questionId
+        module.interface.getSighash("getQueryId"),
+        queryId
       );
 
       await mock.givenMethodReturnBool(
@@ -559,7 +558,6 @@ describe("TellorModuleERC20", async () => {
         ["string", "bytes"],
         ["Snapshot", queryDataArgs]
       );
-      const queryId = ethers.utils.keccak256(queryData);
 
       await oracle.submitValue(
         queryId,
@@ -569,11 +567,11 @@ describe("TellorModuleERC20", async () => {
       );
 
       await expect(
-        module.markProposalWithExpiredAnswerAsInvalid(questionHash)
-      ).to.be.revertedWith("Answer has not expired yet");
+        module.markProposalWithExpiredAnswerAsInvalid(proposalHash)
+      ).to.be.revertedWith("Result has not expired yet");
     });
 
-    it("can mark proposal with expired accepted answer as invalid", async () => {
+    it("can mark proposal with expired accepted result as invalid", async () => {
       const { mock, module, avatar, oracle } = await setupTestWithTestAvatar();
 
       const setAnswerExpiration = module.interface.encodeFunctionData(
@@ -597,11 +595,11 @@ describe("TellorModuleERC20", async () => {
         tx.operation,
         tx.nonce
       );
-      const question = await module.buildQuestion(id, [txHash]);
-      const questionId = await module.getQuestionId(id);
+      const proposal = await module.buildProposal(id, [txHash]);
+      const queryId = await module.getQueryId(id);
 
-      const questionHash = ethers.utils.keccak256(
-        ethers.utils.toUtf8Bytes(question)
+      const proposalHash = ethers.utils.keccak256(
+        ethers.utils.toUtf8Bytes(proposal)
       );
 
       const block = await ethers.provider.getBlock("latest");
@@ -610,8 +608,8 @@ describe("TellorModuleERC20", async () => {
         block.timestamp
       );
       await mock.givenMethodReturnUint(
-        module.interface.getSighash("getQuestionId"),
-        questionId
+        module.interface.getSighash("getQueryId"),
+        queryId
       );
       await mock.givenMethodReturnBool(
         module.interface.getSighash("getDataBefore"),
@@ -624,7 +622,6 @@ describe("TellorModuleERC20", async () => {
         ["string", "bytes"],
         ["Snapshot", queryDataArgs]
       );
-      const queryId = ethers.utils.keccak256(queryData);
 
       await oracle.submitValue(
         queryId,
@@ -637,8 +634,8 @@ describe("TellorModuleERC20", async () => {
 
       await h.advanceTime(91);
 
-      await module.markProposalWithExpiredAnswerAsInvalid(questionHash);
-      expect(await module.questionIds(questionHash)).to.be.deep.equals(
+      await module.markProposalWithExpiredAnswerAsInvalid(proposalHash);
+      expect(await module.queryIds(proposalHash)).to.be.deep.equals(
         INVALIDATED_STATE
       );
     });
@@ -696,7 +693,7 @@ describe("TellorModuleERC20", async () => {
     });
   });
 
-  describe("buildQuestion", async () => {
+  describe("buildProposal", async () => {
     it("concatenates id and hashed hashes as ascii strings", async () => {
       const { module } = await setupTestWithTestAvatar();
       const id = "some_random_id";
@@ -711,14 +708,14 @@ describe("TellorModuleERC20", async () => {
       const hashesHash = ethers.utils
         .solidityKeccak256(["bytes32[]"], [[tx1Hash, tx2Hash]])
         .slice(2);
-      expect(await module.buildQuestion(id, [tx1Hash, tx2Hash])).to.be.equals(
+      expect(await module.buildProposal(id, [tx1Hash, tx2Hash])).to.be.equals(
         `${id}␟${hashesHash}`
       );
     });
   });
 
   describe("addProposal", async () => {
-    it("throws if proposed question was already invalidated before creation", async () => {
+    it("throws if proposed proposal was already invalidated before creation", async () => {
       const { module, mock, oracle, avatar } = await setupTestWithTestAvatar();
       const id = "some_random_id";
       const txHash = ethers.utils.solidityKeccak256(
@@ -726,11 +723,11 @@ describe("TellorModuleERC20", async () => {
         ["some_tx_data"]
       );
 
-      const questionId = await module.getQuestionId(id);
+      const queryId = await module.getQueryId(id);
 
       await mock.givenMethodReturnUint(
-        module.interface.getSighash("getQuestionId"),
-        questionId
+        module.interface.getSighash("getQueryId"),
+        queryId
       );
 
       const markInvalid = module.interface.encodeFunctionData(
@@ -752,11 +749,11 @@ describe("TellorModuleERC20", async () => {
         ["some_tx_data"]
       );
 
-      const questionId = await module.getQuestionId(id);
+      const queryId = await module.getQueryId(id);
 
       await mock.givenMethodReturnUint(
-        module.interface.getSighash("getQuestionId"),
-        questionId
+        module.interface.getSighash("getQueryId"),
+        queryId
       );
 
       await module.addProposal(id, [txHash]);
@@ -766,7 +763,7 @@ describe("TellorModuleERC20", async () => {
       );
     });
 
-    it("throws if proposal was already submitted when question params were different", async () => {
+    it("throws if proposal was already submitted when proposal params were different", async () => {
       const { module, mock, oracle, avatar } = await setupTestWithTestAvatar();
       const id = "some_random_id";
       const txHash = ethers.utils.solidityKeccak256(
@@ -774,12 +771,11 @@ describe("TellorModuleERC20", async () => {
         ["some_tx_data"]
       );
 
-      const question = await module.buildQuestion(id, [txHash]);
-      const questionId = await module.getQuestionId(id);
+      const queryId = await module.getQueryId(id);
 
       await mock.givenMethodReturnUint(
-        module.interface.getSighash("getQuestionId"),
-        questionId
+        module.interface.getSighash("getQueryId"),
+        queryId
       );
 
       await module.addProposal(id, [txHash]);
@@ -797,15 +793,15 @@ describe("TellorModuleERC20", async () => {
         ["some_tx_data"]
       );
 
-      const question = await module.buildQuestion(id, [txHash]);
-      const questionId = await module.getQuestionId(id);
+      const proposal = await module.buildProposal(id, [txHash]);
+      const queryId = await module.getQueryId(id);
 
-      const questionHash = ethers.utils.keccak256(
-        ethers.utils.toUtf8Bytes(question)
+      const proposalHash = ethers.utils.keccak256(
+        ethers.utils.toUtf8Bytes(proposal)
       );
       await mock.givenMethodReturnUint(
-        module.interface.getSighash("getQuestionId"),
-        questionId
+        module.interface.getSighash("getQueryId"),
+        queryId
       );
 
       //submit to the oracle first
@@ -814,7 +810,6 @@ describe("TellorModuleERC20", async () => {
         ["string", "bytes"],
         ["Snapshot", queryDataArgs]
       );
-      const queryId = ethers.utils.keccak256(queryData);
 
       await oracle.submitValue(
         queryId,
@@ -825,24 +820,11 @@ describe("TellorModuleERC20", async () => {
 
       await expect(module.addProposal(id, [txHash]))
         .to.emit(module, "ProposalQuestionCreated")
-        .withArgs(questionId, id);
+        .withArgs(queryId, id);
 
-      expect(await module.questionIds(questionHash)).to.be.deep.equals(
-        questionId
+      expect(await module.queryIds(proposalHash)).to.be.deep.equals(
+        queryId
       );
-
-      // const askQuestionCalldata = module.interface.encodeFunctionData(
-      //   "getQuestionId",
-      //   [id]
-      // );
-      // expect(
-      //   (
-      //     await mock.callStatic.invocationCountForCalldata(askQuestionCalldata)
-      //   ).toNumber()
-      // ).to.be.equals(1);
-      // expect((await mock.callStatic.invocationCount()).toNumber()).to.be.equals(
-      //   1
-      // );
     });
   });
 
@@ -851,49 +833,30 @@ describe("TellorModuleERC20", async () => {
     const id = "some_random_id";
     const txHash = ethers.utils.solidityKeccak256(["string"], ["some_tx_data"]);
 
-    // const setMinimumBond = module.interface.encodeFunctionData(
-    //   "setMinimumBond",
-    //   [7331]
-    // );
-    // await avatar.exec(module.address, 0, setMinimumBond);
-
-    const question = await module.buildQuestion(id, [txHash]);
-    const questionId = await module.getQuestionId(id);
-    const questionHash = ethers.utils.keccak256(
-      ethers.utils.toUtf8Bytes(question)
+    const proposal = await module.buildProposal(id, [txHash]);
+    const queryId = await module.getQueryId(id);
+    const proposalHash = ethers.utils.keccak256(
+      ethers.utils.toUtf8Bytes(proposal)
     );
     await mock.givenMethodReturnUint(
-      module.interface.getSighash("getQuestionId"),
-      questionId
+      module.interface.getSighash("getQueryId"),
+      queryId
     );
 
     await expect(module.addProposal(id, [txHash]))
       .to.emit(module, "ProposalQuestionCreated")
-      .withArgs(questionId, id);
+      .withArgs(queryId, id);
 
-    expect(await module.questionIds(questionHash)).to.be.deep.equals(
-      questionId
+    expect(await module.queryIds(proposalHash)).to.be.deep.equals(
+      queryId
     );
-
-    // const askQuestionCalldata = module.interface.encodeFunctionData(
-    //   "getQuestionId",
-    //   [id]
-    // );
-    // expect(
-    //   (
-    //     await mock.callStatic.invocationCountForCalldata(askQuestionCalldata)
-    //   ).toNumber()
-    // ).to.be.equals(1);
-    // expect((await mock.callStatic.invocationCount()).toNumber()).to.be.equals(
-    //   1
-    // );
   });
 
   describe("addProposalWithNonce", async () => {
     it("throws if previous nonce was not invalid", async () => {
       const { module, mock, oracle } = await setupTestWithTestAvatar();
       await mock.givenMethodReturnUint(
-        module.interface.getSighash("getQuestionId"),
+        module.interface.getSighash("getQueryId"),
         42
       );
       const id = "some_random_id";
@@ -901,17 +864,13 @@ describe("TellorModuleERC20", async () => {
         ["string"],
         ["some_tx_data"]
       );
-      const question = await module.buildQuestion(id, [txHash]);
-      const previousQuestionId = await module.getQuestionId(id);
+      const previousQueryId = await module.getQueryId(id);
       await mock.givenMethodReturnUint(
-        module.interface.getSighash("getQuestionId"),
-        previousQuestionId
+        module.interface.getSighash("getQueryId"),
+        previousQueryId
       );
       await module.addProposal(id, [txHash]);
 
-      // await expect(
-      //   module.addProposalWithNonce(id, [txHash], 1)
-      // ).to.be.revertedWith("Data not retrieved");
     });
 
     it("calls askQuestionWithMinBondERC20 with correct data", async () => {
@@ -922,15 +881,15 @@ describe("TellorModuleERC20", async () => {
         ["some_tx_data"]
       );
 
-      const question = await module.buildQuestion(id, [txHash]);
-      const questionId = await module.getQuestionId(id);
-      const questionHash = ethers.utils.keccak256(
-        ethers.utils.toUtf8Bytes(question)
+      const proposal = await module.buildProposal(id, [txHash]);
+      const queryId = await module.getQueryId(id);
+      const proposalHash = ethers.utils.keccak256(
+        ethers.utils.toUtf8Bytes(proposal)
       );
-      const previousQuestionId = await module.getQuestionId(id);
+      const previousQueryId = await module.getQueryId(id);
       await mock.givenMethodReturnUint(
-        module.interface.getSighash("getQuestionId"),
-        previousQuestionId
+        module.interface.getSighash("getQueryId"),
+        previousQueryId
       );
 
       //submit to the oracle first
@@ -939,7 +898,6 @@ describe("TellorModuleERC20", async () => {
         ["string", "bytes"],
         ["Snapshot", queryDataArgs]
       );
-      const queryId = ethers.utils.keccak256(queryData);
 
       await oracle.submitValue(
         queryId,
@@ -951,48 +909,16 @@ describe("TellorModuleERC20", async () => {
       await module.addProposal(id, [txHash]);
 
       await mock.givenMethodReturnUint(
-        module.interface.getSighash("getQuestionId"),
-        questionId
-      );
-      const block = await ethers.provider.getBlock("latest");
-      // const getDataBeforeCalldata = module.interface.encodeFunctionData(
-      //   "getDataBefore",
-      //   [previousQuestionId, block.timestamp]
-      // );
-      // await mock.givenCalldataReturnUint(
-      //   getDataBeforeCalldata,
-      //   INVALIDATED_STATE
-      // );
-
-      // await expect(module.addProposalWithNonce(id, [txHash], 1))
-      //   .to.emit(module, "ProposalQuestionCreated")
-      //   .withArgs(questionId, id);
-
-      // expect(await module.questionIds(questionHash)).to.be.deep.equals(
-      //   questionId
-      // );
-
-      expect(await module.questionIds(questionHash)).to.be.deep.equals(
-        questionId
+        module.interface.getSighash("getQueryId"),
+        queryId
       );
 
-      // const askQuestionCalldata = module.interface.encodeFunctionData(
-      //   "getQuestionId",
-      //   [id]
-      //   // [1337, question, mock.address, 42, 0, 1, 0, 0]
-      // );
-      // expect(
-      //   (
-      //     await mock.callStatic.invocationCountForCalldata(askQuestionCalldata)
-      //   ).toNumber()
-      // ).to.be.equals(1);
-
-      // expect((await mock.callStatic.invocationCount()).toNumber()).to.be.equals(
-      //   2
-      // );
+      expect(await module.queryIds(proposalHash)).to.be.deep.equals(
+        queryId
+      );
     });
 
-    it("can invalidate after question param change", async () => {
+    it("can invalidate after proposal param change", async () => {
       const { module, mock, oracle, avatar } = await setupTestWithTestAvatar();
       const id = "some_random_id";
       const txHash = ethers.utils.solidityKeccak256(
@@ -1000,55 +926,37 @@ describe("TellorModuleERC20", async () => {
         ["some_tx_data"]
       );
 
-      const question = await module.buildQuestion(id, [txHash]);
-      const questionHash = ethers.utils.keccak256(
-        ethers.utils.toUtf8Bytes(question)
+      const proposal = await module.buildProposal(id, [txHash]);
+      const proposalHash = ethers.utils.keccak256(
+        ethers.utils.toUtf8Bytes(proposal)
       );
-      const previousQuestionId = await module.getQuestionId(id);
+      const previousQueryId = await module.getQueryId(id);
       await mock.givenMethodReturnUint(
-        module.interface.getSighash("getQuestionId"),
-        previousQuestionId
+        module.interface.getSighash("getQueryId"),
+        previousQueryId
       );
 
       await module.addProposal(id, [txHash]);
 
-      const questionId = await module.getQuestionId(id);
+      const queryId = await module.getQueryId(id);
       await mock.givenMethodReturnUint(
-        module.interface.getSighash("getQuestionId"),
-        questionId
+        module.interface.getSighash("getQueryId"),
+        queryId
       );
 
       const block = await ethers.provider.getBlock("latest");
 
       await mock.givenCalldataReturnUint(
         module.interface.encodeFunctionData("getDataBefore", [
-          previousQuestionId,
+          previousQueryId,
           block.timestamp,
         ]),
         INVALIDATED_STATE
       );
 
-      //   await expect(module.addProposalWithNonce(id, [txHash], 11))
-      //   .to.emit(module, "ProposalQuestionCreated")
-      //   .withArgs(questionId, id);
-      expect(await module.questionIds(questionHash)).to.be.deep.equals(
-        questionId
+      expect(await module.queryIds(proposalHash)).to.be.deep.equals(
+        queryId
       );
-
-      // const askQuestionCalldata = module.interface.encodeFunctionData(
-      //   "getQuestionId",
-      //   [id]
-      // [1337, question, mock.address, 23, 0, 11, 0, 0]
-      // );
-      // expect(
-      //   (
-      //     await mock.callStatic.invocationCountForCalldata(askQuestionCalldata)
-      //   ).toNumber()
-      // ).to.be.equals(1);
-
-      // expect((await mock.callStatic.invocationCount()).toNumber()).to.be.equals(
-      //   2
-      // );
     });
 
     it("can invalidate multiple times", async () => {
@@ -1059,74 +967,46 @@ describe("TellorModuleERC20", async () => {
         ["some_tx_data"]
       );
 
-      const question = await module.buildQuestion(id, [txHash]);
-      const questionId = await module.getQuestionId(id);
-      const questionHash = ethers.utils.keccak256(
-        ethers.utils.toUtf8Bytes(question)
+      const proposal = await module.buildProposal(id, [txHash]);
+      const queryId = await module.getQueryId(id);
+      const proposalHash = ethers.utils.keccak256(
+        ethers.utils.toUtf8Bytes(proposal)
       );
-      const previousQuestionId = await module.getQuestionId(id);
+      const previousQueryId = await module.getQueryId(id);
       await mock.givenMethodReturnUint(
-        module.interface.getSighash("getQuestionId"),
-        previousQuestionId
+        module.interface.getSighash("getQueryId"),
+        previousQueryId
       );
       await module.addProposal(id, [txHash]);
 
       await mock.givenMethodReturnUint(
-        module.interface.getSighash("getQuestionId"),
-        questionId
+        module.interface.getSighash("getQueryId"),
+        queryId
       );
 
       const block = await ethers.provider.getBlock("latest");
 
       await mock.givenCalldataReturnUint(
         module.interface.encodeFunctionData("getDataBefore", [
-          previousQuestionId,
+          previousQueryId,
           block.timestamp,
         ]),
         INVALIDATED_STATE
       );
 
-      // await expect(module.addProposalWithNonce(id, [txHash], 1))
-      //   .to.emit(module, "ProposalQuestionCreated")
-      //   .withArgs(questionId, id);
-      // expect(await module.questionIds(questionHash)).to.be.deep.equals(
-      //   questionId
-      // );
-
       // Nonce doesn't need to increase 1 by 1
-      const finalQuestionId = await module.getQuestionId(id);
+      const finalQueryId = await module.getQueryId(id);
       await mock.givenMethodReturnUint(
-        module.interface.getSighash("getQuestionId"),
-        finalQuestionId
+        module.interface.getSighash("getQueryId"),
+        finalQueryId
       );
       await mock.givenCalldataReturnUint(
         module.interface.encodeFunctionData("getDataBefore", [
-          questionId,
+          queryId,
           block.timestamp,
         ]),
         INVALIDATED_STATE
       );
-
-      // await expect(module.addProposalWithNonce(id, [txHash], 1337))
-      //   .to.emit(module, "ProposalQuestionCreated")
-      //   .withArgs(finalQuestionId, id);
-      // expect(await module.questionIds(questionHash)).to.be.deep.equals(
-      //   finalQuestionId
-      // );
-
-      // const askQuestionCalldata = module.interface.encodeFunctionData(
-      //   "getQuestionId",
-      //   [id]
-      // );
-      // expect(
-      //   (
-      //     await mock.callStatic.invocationCountForCalldata(askQuestionCalldata)
-      //   ).toNumber()
-      // ).to.be.equals(1);
-
-      // expect((await mock.callStatic.invocationCount()).toNumber()).to.be.equals(
-      //   3
-      // );
     });
 
     it("does not create proposal if previous nonce was internally invalidated", async () => {
@@ -1137,15 +1017,15 @@ describe("TellorModuleERC20", async () => {
         ["some_tx_data"]
       );
 
-      const question = await module.buildQuestion(id, [txHash]);
-      const questionHash = ethers.utils.keccak256(
-        ethers.utils.toUtf8Bytes(question)
+      const proposal = await module.buildProposal(id, [txHash]);
+      const proposalHash = ethers.utils.keccak256(
+        ethers.utils.toUtf8Bytes(proposal)
       );
-      const questionIdNonce0 = await module.getQuestionId(id);
-      const questionIdNonce1 = await module.getQuestionId(id);
+      const questionIdNonce0 = await module.getQueryId(id);
+      const questionIdNonce1 = await module.getQueryId(id);
 
       await mock.givenMethodReturnUint(
-        module.interface.getSighash("getQuestionId"),
+        module.interface.getSighash("getQueryId"),
         questionIdNonce0
       );
       const proposalParameters = [id, [txHash]];
@@ -1156,7 +1036,7 @@ describe("TellorModuleERC20", async () => {
         [...proposalParameters]
       );
       await avatar.exec(module.address, 0, markAsInvalidCalldata);
-      expect(await module.questionIds(questionHash)).to.deep.equal(
+      expect(await module.queryIds(proposalHash)).to.deep.equal(
         INVALIDATED_STATE
       );
 
@@ -1166,12 +1046,9 @@ describe("TellorModuleERC20", async () => {
       );
 
       await mock.givenMethodReturnUint(
-        module.interface.getSighash("getQuestionId"),
+        module.interface.getSighash("getQueryId"),
         questionIdNonce1
       );
-      // await expect(
-      //   module.addProposalWithNonce(...proposalParameters, 1)
-      // ).to.be.revertedWith("This proposal has been marked as invalid");
     });
 
     it("cannot ask again if follow up was not invalidated", async () => {
@@ -1182,56 +1059,45 @@ describe("TellorModuleERC20", async () => {
         ["some_tx_data"]
       );
 
-      const question = await module.buildQuestion(id, [txHash]);
-      const questionId = await module.getQuestionId(id);
-      const questionHash = ethers.utils.keccak256(
-        ethers.utils.toUtf8Bytes(question)
+      const proposal = await module.buildProposal(id, [txHash]);
+      const queryId = await module.getQueryId(id);
+      const proposalHash = ethers.utils.keccak256(
+        ethers.utils.toUtf8Bytes(proposal)
       );
-      const previousQuestionId = await module.getQuestionId(id);
+      const previousQueryId = await module.getQueryId(id);
       await mock.givenMethodReturnUint(
-        module.interface.getSighash("getQuestionId"),
-        previousQuestionId
+        module.interface.getSighash("getQueryId"),
+        previousQueryId
       );
       await module.addProposal(id, [txHash]);
 
       await mock.givenMethodReturnUint(
-        module.interface.getSighash("getQuestionId"),
-        questionId
+        module.interface.getSighash("getQueryId"),
+        queryId
       );
 
       const block = await ethers.provider.getBlock("latest");
 
       await mock.givenCalldataReturnUint(
         module.interface.encodeFunctionData("getDataBefore", [
-          previousQuestionId,
+          previousQueryId,
           block.timestamp,
         ]),
         INVALIDATED_STATE
       );
 
-      // await expect(module.addProposalWithNonce(id, [txHash], 42))
-      //   .to.emit(module, "ProposalQuestionCreated")
-      //   .withArgs(questionId, id);
-      // expect(await module.questionIds(questionHash)).to.be.deep.equals(
-      //   questionId
-      // );
-
       await mock.givenCalldataReturnBool(
         module.interface.encodeFunctionData("getDataBefore", [
-          questionId,
+          queryId,
           block.timestamp,
         ]),
         true
       );
-
-      // await expect(
-      //   module.addProposalWithNonce(id, [txHash], 1337)
-      // ).to.be.revertedWith("Previous proposal was not invalidated");
     });
   });
 
   describe("executeProposal", async () => {
-    it("throws if question id was not set", async () => {
+    it("throws if query id was not set", async () => {
       const { module } = await setupTestWithMockAvatar();
 
       const id = "some_random_id";
@@ -1259,7 +1125,7 @@ describe("TellorModuleERC20", async () => {
           tx.data,
           tx.operation
         )
-      ).to.be.revertedWith("No question id set for provided proposal");
+      ).to.be.revertedWith("No query id set for provided proposal");
     });
 
     it("throws if proposal has been invalidated", async () => {
@@ -1280,12 +1146,11 @@ describe("TellorModuleERC20", async () => {
         tx.operation,
         tx.nonce
       );
-      const question = await module.buildQuestion(id, [txHash]);
-      const questionId = await module.getQuestionId(id);
+      const queryId = await module.getQueryId(id);
 
       await mock.givenMethodReturnUint(
-        module.interface.getSighash("getQuestionId"),
-        questionId
+        module.interface.getSighash("getQueryId"),
+        queryId
       );
       await module.addProposal(id, [txHash]);
 
@@ -1307,7 +1172,7 @@ describe("TellorModuleERC20", async () => {
       ).to.be.revertedWith("Proposal has been invalidated");
     });
 
-    it("Proposal stays invalid after question param updates", async () => {
+    it("Proposal stays invalid after proposal param updates", async () => {
       const { avatar, mock, module, oracle } = await setupTestWithTestAvatar();
 
       const id = "some_random_id";
@@ -1325,12 +1190,11 @@ describe("TellorModuleERC20", async () => {
         tx.operation,
         tx.nonce
       );
-      const question = await module.buildQuestion(id, [txHash]);
-      const questionId = await module.getQuestionId(id);
+      const queryId = await module.getQueryId(id);
 
       await mock.givenMethodReturnUint(
-        module.interface.getSighash("getQuestionId"),
-        questionId
+        module.interface.getSighash("getQueryId"),
+        queryId
       );
       await module.addProposal(id, [txHash]);
 
@@ -1381,12 +1245,11 @@ describe("TellorModuleERC20", async () => {
         tx.operation,
         tx.nonce
       );
-      const question = await module.buildQuestion(id, [txHash]);
-      const questionId = await module.getQuestionId(id);
+      const queryId = await module.getQueryId(id);
 
       await mock.givenMethodReturnUint(
-        module.interface.getSighash("getQuestionId"),
-        questionId
+        module.interface.getSighash("getQueryId"),
+        queryId
       );
       await module.addProposal(id, [txHash]);
 
@@ -1402,7 +1265,7 @@ describe("TellorModuleERC20", async () => {
       ).to.be.revertedWith("Unexpected transaction hash");
     });
 
-    it("throws if tx data doesn't belong to questionId", async () => {
+    it("throws if tx data doesn't belong to queryId", async () => {
       const { mock, module, oracle } = await setupTestWithMockAvatar();
 
       const id = "some_random_id";
@@ -1420,12 +1283,11 @@ describe("TellorModuleERC20", async () => {
         tx.operation,
         tx.nonce
       );
-      const question = await module.buildQuestion(id, []);
-      const questionId = await module.getQuestionId(id);
+      const queryId = await module.getQueryId(id);
 
       await mock.givenMethodReturnUint(
-        module.interface.getSighash("getQuestionId"),
-        questionId
+        module.interface.getSighash("getQueryId"),
+        queryId
       );
       await module.addProposal(id, []);
 
@@ -1443,7 +1305,7 @@ describe("TellorModuleERC20", async () => {
           tx.data,
           tx.operation
         )
-      ).to.be.revertedWith("No question id set for provided proposal");
+      ).to.be.revertedWith("No query id set for provided proposal");
     });
 
     it("throws if tx was not approved", async () => {
@@ -1464,12 +1326,11 @@ describe("TellorModuleERC20", async () => {
         tx.operation,
         tx.nonce
       );
-      const question = await module.buildQuestion(id, [txHash]);
-      const questionId = await module.getQuestionId(id);
+      const queryId = await module.getQueryId(id);
 
       await mock.givenMethodReturnUint(
-        module.interface.getSighash("getQuestionId"),
-        questionId
+        module.interface.getSighash("getQueryId"),
+        queryId
       );
 
       //submit to the oracle first
@@ -1478,7 +1339,6 @@ describe("TellorModuleERC20", async () => {
         ["string", "bytes"],
         ["Snapshot", queryDataArgs]
       );
-      const queryId = ethers.utils.keccak256(queryData);
 
       await oracle.submitValue(
         queryId,
@@ -1526,28 +1386,20 @@ describe("TellorModuleERC20", async () => {
         tx.operation,
         tx.nonce
       );
-      const question = await module.buildQuestion(id, [txHash]);
-      const questionId = await module.getQuestionId(id);
+      const proposal = await module.buildProposal(id, [txHash]);
+      const queryId = await module.getQueryId(id);
 
       await mock.givenMethodReturnUint(
-        module.interface.getSighash("getQuestionId"),
-        questionId
+        module.interface.getSighash("getQueryId"),
+        queryId
       );
       await module.addProposal(id, [txHash]);
 
-      // const setMinimumBond = module.interface.encodeFunctionData(
-      //   "setMinimumBond",
-      //   [7331]
-      // );
-      // await avatar.exec(module.address, 0, setMinimumBond);
       await avatar.setModule(module.address);
 
       const block = await ethers.provider.getBlock("latest");
       await mock.reset();
-      // await mock.givenMethodReturnUint(
-      //   oracle.interface.getSighash("getBond"),
-      //   7331
-      // );
+
       await mock.givenMethodReturnBool(
         module.interface.getSighash("getDataBefore"),
         true
@@ -1563,7 +1415,6 @@ describe("TellorModuleERC20", async () => {
         ["string", "bytes"],
         ["Snapshot", queryDataArgs]
       );
-      const queryId = ethers.utils.keccak256(queryData);
 
       await oracle.submitValue(
         queryId,
@@ -1585,7 +1436,7 @@ describe("TellorModuleERC20", async () => {
 
       expect(
         await module.executedProposalTransactions(
-          ethers.utils.solidityKeccak256(["string"], [question]),
+          ethers.utils.solidityKeccak256(["string"], [proposal]),
           txHash
         )
       ).to.be.equals(true);
@@ -1609,12 +1460,11 @@ describe("TellorModuleERC20", async () => {
         tx.operation,
         tx.nonce
       );
-      const question = await module.buildQuestion(id, [txHash]);
-      const questionId = await module.getQuestionId(id);
+      const queryId = await module.getQueryId(id);
 
       await mock.givenMethodReturnUint(
-        module.interface.getSighash("getQuestionId"),
-        questionId
+        module.interface.getSighash("getQueryId"),
+        queryId
       );
 
       //submit to the oracle first
@@ -1623,7 +1473,6 @@ describe("TellorModuleERC20", async () => {
         ["string", "bytes"],
         ["Snapshot", queryDataArgs]
       );
-      const queryId = ethers.utils.keccak256(queryData);
 
       await oracle.submitValue(
         queryId,
@@ -1656,7 +1505,7 @@ describe("TellorModuleERC20", async () => {
       ).to.be.revertedWith("Wait for additional cooldown");
     });
 
-    it("throws if answer expired", async () => {
+    it("throws if result expired", async () => {
       const { mock, module, oracle, avatar } = await setupTestWithTestAvatar();
 
       await user1.sendTransaction({ to: avatar.address, value: 100 });
@@ -1682,11 +1531,11 @@ describe("TellorModuleERC20", async () => {
         tx.operation,
         tx.nonce
       );
-      const questionId = await module.getQuestionId(id);
+      const queryId = await module.getQueryId(id);
 
       await mock.givenMethodReturnUint(
-        module.interface.getSighash("getQuestionId"),
-        questionId
+        module.interface.getSighash("getQueryId"),
+        queryId
       );
 
       const queryDataArgs = abiCoder.encode(["string"], [id]);
@@ -1694,7 +1543,6 @@ describe("TellorModuleERC20", async () => {
         ["string", "bytes"],
         ["Snapshot", queryDataArgs]
       );
-      const queryId = ethers.utils.keccak256(queryData);
 
       await oracle.submitValue(
         queryId,
@@ -1728,18 +1576,15 @@ describe("TellorModuleERC20", async () => {
           tx.data,
           tx.operation
         )
-      ).to.be.revertedWith("Answer has expired");
+      ).to.be.revertedWith("Result has expired");
 
-      // Reset answer expiration time, so that we can execute the transaction
+      // Reset result expiration time, so that we can execute the transaction
       const resetAnswerExpiration = module.interface.encodeFunctionData(
         "setAnswerExpiration",
         [0]
       );
       await avatar.exec(module.address, 0, resetAnswerExpiration);
 
-      // expect((await mock.callStatic.invocationCount()).toNumber()).to.be.equals(
-      //   1
-      // );
       expect(
         (await hre.ethers.provider.getBalance(mock.address)).toNumber()
       ).to.be.equals(0);
@@ -1753,15 +1598,12 @@ describe("TellorModuleERC20", async () => {
         tx.operation
       );
 
-      // expect((await mock.callStatic.invocationCount()).toNumber()).to.be.equals(
-      //   2
-      // );
       expect(
         (await hre.ethers.provider.getBalance(mock.address)).toNumber()
       ).to.be.equals(42);
     });
 
-    it("throws if tx was already executed for that question", async () => {
+    it("throws if tx was already executed for that proposal", async () => {
       const { mock, module, oracle, avatar } = await setupTestWithMockAvatar();
 
       const id = "some_random_id";
@@ -1779,12 +1621,11 @@ describe("TellorModuleERC20", async () => {
         tx.operation,
         tx.nonce
       );
-      const question = await module.buildQuestion(id, [txHash]);
-      const questionId = await module.getQuestionId(id);
+      const queryId = await module.getQueryId(id);
 
       await mock.givenMethodReturnUint(
-        module.interface.getSighash("getQuestionId"),
-        questionId
+        module.interface.getSighash("getQueryId"),
+        queryId
       );
 
       //submit to the oracle first
@@ -1793,7 +1634,6 @@ describe("TellorModuleERC20", async () => {
         ["string", "bytes"],
         ["Snapshot", queryDataArgs]
       );
-      const queryId = ethers.utils.keccak256(queryData);
 
       await oracle.submitValue(
         queryId,
@@ -1856,12 +1696,12 @@ describe("TellorModuleERC20", async () => {
         tx.operation,
         tx.nonce
       );
-      const question = await module.buildQuestion(id, [txHash]);
-      const questionId = await module.getQuestionId(id);
+      const proposal = await module.buildProposal(id, [txHash]);
+      const queryId = await module.getQueryId(id);
 
       await mock.givenMethodReturnUint(
-        module.interface.getSighash("getQuestionId"),
-        questionId
+        module.interface.getSighash("getQueryId"),
+        queryId
       );
 
       //submit to the oracle first
@@ -1870,7 +1710,6 @@ describe("TellorModuleERC20", async () => {
         ["string", "bytes"],
         ["Snapshot", queryDataArgs]
       );
-      const queryId = ethers.utils.keccak256(queryData);
 
       await oracle.submitValue(
         queryId,
@@ -1894,9 +1733,7 @@ describe("TellorModuleERC20", async () => {
         false
       );
       await h.advanceTime(24);
-      // expect((await mock.callStatic.invocationCount()).toNumber()).to.be.equals(
-      //   1
-      // );
+
       await expect(
         module.executeProposalWithIndex(
           id,
@@ -1910,7 +1747,7 @@ describe("TellorModuleERC20", async () => {
       ).to.be.revertedWith("Module transaction failed");
       expect(
         await module.executedProposalTransactions(
-          ethers.utils.solidityKeccak256(["string"], [question]),
+          ethers.utils.solidityKeccak256(["string"], [proposal]),
           txHash
         )
       ).to.be.equals(false);
@@ -1931,7 +1768,7 @@ describe("TellorModuleERC20", async () => {
       );
       expect(
         await module.executedProposalTransactions(
-          ethers.utils.solidityKeccak256(["string"], [question]),
+          ethers.utils.solidityKeccak256(["string"], [proposal]),
           txHash
         )
       ).to.be.equals(true);
@@ -1955,12 +1792,12 @@ describe("TellorModuleERC20", async () => {
         tx.operation,
         tx.nonce
       );
-      const question = await module.buildQuestion(id, [txHash]);
-      const questionId = await module.getQuestionId(id);
+      const proposal = await module.buildProposal(id, [txHash]);
+      const queryId = await module.getQueryId(id);
 
       await mock.givenMethodReturnUint(
-        module.interface.getSighash("getQuestionId"),
-        questionId
+        module.interface.getSighash("getQueryId"),
+        queryId
       );
 
       //submit to the oracle first
@@ -1969,7 +1806,6 @@ describe("TellorModuleERC20", async () => {
         ["string", "bytes"],
         ["Snapshot", queryDataArgs]
       );
-      const queryId = ethers.utils.keccak256(queryData);
 
       await oracle.submitValue(
         queryId,
@@ -2017,15 +1853,15 @@ describe("TellorModuleERC20", async () => {
         tx.operation
       );
 
-      const questionHash = ethers.utils.keccak256(
-        ethers.utils.toUtf8Bytes(question)
+      const proposalHash = ethers.utils.keccak256(
+        ethers.utils.toUtf8Bytes(proposal)
       );
-      expect(await module.questionIds(questionHash)).to.be.deep.equals(
-        questionId
+      expect(await module.queryIds(proposalHash)).to.be.deep.equals(
+        queryId
       );
       expect(
         await module.executedProposalTransactions(
-          ethers.utils.solidityKeccak256(["string"], [question]),
+          ethers.utils.solidityKeccak256(["string"], [proposal]),
           txHash
         )
       ).to.be.equals(true);
@@ -2081,12 +1917,11 @@ describe("TellorModuleERC20", async () => {
         tx2.operation,
         tx2.nonce
       );
-      const question = await module.buildQuestion(id, [tx1Hash, tx2Hash]);
-      const questionId = await module.getQuestionId(id);
+      const queryId = await module.getQueryId(id);
 
       await mock.givenMethodReturnUint(
-        module.interface.getSighash("getQuestionId"),
-        questionId
+        module.interface.getSighash("getQueryId"),
+        queryId
       );
 
       //submit to the oracle first
@@ -2095,7 +1930,6 @@ describe("TellorModuleERC20", async () => {
         ["string", "bytes"],
         ["Snapshot", queryDataArgs]
       );
-      const queryId = ethers.utils.keccak256(queryData);
 
       await oracle.submitValue(
         queryId,
@@ -2160,12 +1994,12 @@ describe("TellorModuleERC20", async () => {
         tx2.operation,
         tx2.nonce
       );
-      const question = await module.buildQuestion(id, [tx1Hash, tx2Hash]);
-      const questionId = await module.getQuestionId(id);
+      const proposal = await module.buildProposal(id, [tx1Hash, tx2Hash]);
+      const queryId = await module.getQueryId(id);
 
       await mock.givenMethodReturnUint(
-        module.interface.getSighash("getQuestionId"),
-        questionId
+        module.interface.getSighash("getQueryId"),
+        queryId
       );
 
       //submit to the oracle first
@@ -2174,7 +2008,6 @@ describe("TellorModuleERC20", async () => {
         ["string", "bytes"],
         ["Snapshot", queryDataArgs]
       );
-      const queryId = ethers.utils.keccak256(queryData);
 
       await oracle.submitValue(
         queryId,
@@ -2211,7 +2044,7 @@ describe("TellorModuleERC20", async () => {
 
       expect(
         await module.executedProposalTransactions(
-          ethers.utils.solidityKeccak256(["string"], [question]),
+          ethers.utils.solidityKeccak256(["string"], [proposal]),
           tx1Hash
         )
       ).to.be.equals(true);
@@ -2243,7 +2076,7 @@ describe("TellorModuleERC20", async () => {
 
       expect(
         await module.executedProposalTransactions(
-          ethers.utils.solidityKeccak256(["string"], [question]),
+          ethers.utils.solidityKeccak256(["string"], [proposal]),
           tx2Hash
         )
       ).to.be.equals(true);
@@ -2296,12 +2129,12 @@ describe("TellorModuleERC20", async () => {
 
       expect(tx1Hash).to.be.not.equals(tx2Hash);
 
-      const question = await module.buildQuestion(id, [tx1Hash, tx2Hash]);
-      const questionId = await module.getQuestionId(id);
+      const proposal = await module.buildProposal(id, [tx1Hash, tx2Hash]);
+      const queryId = await module.getQueryId(id);
 
       await mock.givenMethodReturnUint(
-        module.interface.getSighash("getQuestionId"),
-        questionId
+        module.interface.getSighash("getQueryId"),
+        queryId
       );
 
       // submit to the oracle first
@@ -2310,7 +2143,6 @@ describe("TellorModuleERC20", async () => {
         ["string", "bytes"],
         ["Snapshot", queryDataArgs]
       );
-      const queryId = ethers.utils.keccak256(queryData);
 
       await oracle.submitValue(
         queryId,
@@ -2347,7 +2179,7 @@ describe("TellorModuleERC20", async () => {
 
       expect(
         await module.executedProposalTransactions(
-          ethers.utils.solidityKeccak256(["string"], [question]),
+          ethers.utils.solidityKeccak256(["string"], [proposal]),
           tx1Hash
         )
       ).to.be.equals(true);
@@ -2379,7 +2211,7 @@ describe("TellorModuleERC20", async () => {
 
       expect(
         await module.executedProposalTransactions(
-          ethers.utils.solidityKeccak256(["string"], [question]),
+          ethers.utils.solidityKeccak256(["string"], [proposal]),
           tx2Hash
         )
       ).to.be.equals(true);
