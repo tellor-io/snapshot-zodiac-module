@@ -95,6 +95,7 @@ contract TellorModule is Module, UsingTellor {
      * @dev Build the proposal by combining the proposalId and the hex string of the hash of the txHashes
      * @param _proposalId Id of the proposal that proposes to execute the transactions represented by the txHashes
      * @param _txHashes EIP-712 Hashes of the transactions that should be executed
+     * @returns a unique propsoal id
      */
     function buildProposal(
         string memory _proposalId,
@@ -262,6 +263,7 @@ contract TellorModule is Module, UsingTellor {
      * @param _data Data of the transaction that should be executed
      * @param _operation Operation (Call or Delegatecall) of the transaction that should be executed
      * @param _nonce Nonce of the transaction that should be executed
+     * @returns transaction hash ??? are they supposed to use this in the buildProposal???
      */
     function generateTransactionHashData(
         address _to,
