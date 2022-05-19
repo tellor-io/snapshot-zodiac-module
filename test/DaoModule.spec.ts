@@ -118,7 +118,7 @@ describe("TellorModuleERC20", async () => {
       ).to.be.revertedWith("Avatar can not be zero address");
     });
 
-    it("throws if avatar is zero address", async () => {
+    it("throws if target is zero address", async () => {
       const Module = await hre.ethers.getContractFactory("TellorModule");
       await expect(
         Module.deploy(
