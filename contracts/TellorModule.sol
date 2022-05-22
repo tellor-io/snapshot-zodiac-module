@@ -7,14 +7,12 @@ import "usingtellor/contracts/UsingTellor.sol";
 contract TellorModule is Module, UsingTellor {
     // Events
     event ProposalAdded(bytes32 indexed queryId, string indexed proposalId);
-
     event TellorModuleSetup(
         address indexed initiator,
         address indexed owner,
         address indexed avatar,
         address target
     );
-
     // Storage
     uint32 public resultExpiration;
     bytes32 public constant DOMAIN_SEPARATOR_TYPEHASH =
@@ -22,26 +20,19 @@ contract TellorModule is Module, UsingTellor {
     // keccak256(
     //     "EIP712Domain(uint256 chainId,address verifyingContract)"
     // );
-
     // Mapping of proposalHash to transactionHash to execution state
     mapping(bytes32 => mapping(bytes32 => bool))
         public executedProposalTransactions;
-
     bytes32 public constant INVALIDATED =
         0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
-
     uint32 public cooldown;
-
     // Mapping of proposal hash to proposal id. Special case: INVALIDATED for proposal hashes that have been invalidated
     mapping(bytes32 => bytes32) public queryIds;
-
     bytes32 public constant TRANSACTION_TYPEHASH =
         0x72e9670a7ee00f5fbf1049b8c38e3f22fab7e9b85029e85cf9412f17fdd5c2ad;
-
     // keccak256(
     //     "Transaction(address to,uint256 value,bytes data,uint8 operation,uint256 nonce)"
     // );
-
     /*Functions*/
     /**
      * @param _owner Address of the owner
@@ -161,14 +152,12 @@ contract TellorModule is Module, UsingTellor {
         );
         // Lookup query id for this proposal
         bytes32 _queryId = queryIds[_proposalHash];
-
         // Proposal hash needs to set to be eligible for execution
         require(
             _queryId != bytes32(0),
             "No query id set for provided proposal"
         );
         require(_queryId != INVALIDATED, "Proposal has been invalidated");
-
         bytes32 _txHash = getTransactionHash(
             _to,
             _value,
@@ -176,34 +165,26 @@ contract TellorModule is Module, UsingTellor {
             _operation,
             _txIndex
         );
-
         require(_txHashes[_txIndex] == _txHash, "Unexpected transaction hash");
-
         (
             bool _ifRetrieve,
             bytes memory _valueRetrieved,
             uint256 _timestampReceived
         ) = getDataBefore(_queryId, block.timestamp);
-
         require(_ifRetrieve, "Data not retrieved");
-
         // The result is valid in the time after the cooldown and before the expiration time (if set).
         require(
             _timestampReceived + uint256(cooldown) < block.timestamp,
             "Wait for additional cooldown"
         );
-
         bool _didPass = abi.decode(_valueRetrieved, (bool));
-
         require(_didPass, "Transaction was not approved");
-
         uint32 _expiration = resultExpiration;
         require(
             _expiration == 0 ||
                 _timestampReceived + uint256(_expiration) >= block.timestamp,
             "Result has expired"
         );
-
         // Check this is either the first transaction in the list or that the previous proposal was already approved
         require(
             _txIndex == 0 ||
@@ -219,7 +200,6 @@ contract TellorModule is Module, UsingTellor {
         );
         // Mark transaction as executed
         executedProposalTransactions[_proposalHash][_txHash] = true;
-
         // Execute the transaction via the target.
         require(
             exec(_to, _value, _data, _operation),
@@ -269,7 +249,7 @@ contract TellorModule is Module, UsingTellor {
         bytes memory _data,
         Enum.Operation _operation,
         uint256 _nonce
-    ) public view returns (bytes memory) {
+    ) internal view returns (bytes memory) {
         uint256 _chainId = getChainId();
         bytes32 _domainSeparator = keccak256(
             abi.encode(DOMAIN_SEPARATOR_TYPEHASH, _chainId, this)
@@ -367,19 +347,14 @@ contract TellorModule is Module, UsingTellor {
             bytes memory _valueRetrieved,
             uint256 _timestampRetrieved
         ) = getDataBefore(_queryId, block.timestamp);
-
         require(_ifRetrieve, "Data not retrieved");
-
         bool _didPass = abi.decode(_valueRetrieved, (bool));
-
         require(_didPass, "Transaction was not approved");
-
         require(
             _timestampRetrieved + uint256(_expirationDuration) <
                 block.timestamp,
             "Result has not expired yet"
         );
-
         queryIds[_proposalHash] = INVALIDATED;
     }
 
@@ -424,9 +399,7 @@ contract TellorModule is Module, UsingTellor {
         target = _target;
         resultExpiration = _expiration;
         cooldown = _cooldown;
-
         transferOwnership(_owner);
-
         emit TellorModuleSetup(msg.sender, _owner, _avatar, _target);
     }
 
