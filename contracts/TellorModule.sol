@@ -9,11 +9,11 @@ contract TellorModule is Module, UsingTellor {
     event ProposalAdded(bytes32 indexed queryId, string indexed proposalId);
     event TellorModuleSetup(
         address indexed initiator,
-        address indexed owner,
         address indexed avatar,
         address target
     );
     // Storage
+    bool private _initialized;
     uint32 public resultExpiration;
     bytes32 public constant DOMAIN_SEPARATOR_TYPEHASH =
         0x47e79534a245952e8b16893a336b85a3d9ea9fa8c573f3d803afb92a79469218;
@@ -30,12 +30,12 @@ contract TellorModule is Module, UsingTellor {
     mapping(bytes32 => bytes32) public queryIds;
     bytes32 public constant TRANSACTION_TYPEHASH =
         0x72e9670a7ee00f5fbf1049b8c38e3f22fab7e9b85029e85cf9412f17fdd5c2ad;
+
     // keccak256(
     //     "Transaction(address to,uint256 value,bytes data,uint8 operation,uint256 nonce)"
     // );
     /*Functions*/
     /**
-     * @param _owner Address of the owner
      * @param _avatar Address of the avatar (e.g. a Safe)
      * @param _target Address of the contract that will call exec function
      * @param _tellorAddress Address of the Tellor oracle contract
@@ -44,7 +44,6 @@ contract TellorModule is Module, UsingTellor {
      * @notice There need to be at least 60 seconds between end of cooldown and expiration
      */
     constructor(
-        address _owner,
         address _avatar,
         address _target,
         address payable _tellorAddress,
@@ -52,7 +51,6 @@ contract TellorModule is Module, UsingTellor {
         uint32 _expiration
     ) UsingTellor(_tellorAddress) {
         bytes memory initParams = abi.encode(
-            _owner,
             _avatar,
             _target,
             _cooldown,
@@ -301,33 +299,6 @@ contract TellorModule is Module, UsingTellor {
     }
 
     /**
-     * @dev Marks a proposal as invalid, preventing execution of the connected transactions
-     * @param _proposalId Id that should identify the proposal uniquely
-     * @param _txHashes EIP-712 hashes of the transactions that should be executed
-     * @notice This can only be called by the owner
-     */
-    function markProposalAsInvalid(
-        string memory _proposalId,
-        bytes32[] memory _txHashes // owner only is checked in markProposalAsInvalidByHash(bytes32)
-    ) public {
-        string memory _proposal = buildProposal(_proposalId, _txHashes);
-        bytes32 _proposalHash = keccak256(bytes(_proposal));
-        markProposalAsInvalidByHash(_proposalHash);
-    }
-
-    /**
-     * @dev Marks a proposal hash as invalid, preventing execution of the connected transactions
-     * @param _proposalHash Proposal hash calculated based on the proposal id and txHashes
-     * @notice This can only be called by the owner
-     */
-    function markProposalAsInvalidByHash(bytes32 _proposalHash)
-        public
-        onlyOwner
-    {
-        queryIds[_proposalHash] = INVALIDATED;
-    }
-
-    /**
      * @dev Marks a proposal with an expired result as invalid, preventing execution of the connected transactions
      * @param _proposalHash Proposal hash calculated based on the proposal id and txHashes
      */
@@ -359,36 +330,22 @@ contract TellorModule is Module, UsingTellor {
     }
 
     /**
-     * @dev Sets the duration for which a positive result is valid.
-     * @param _expiration Duration that a positive result of the oracle is valid in seconds (or 0 if valid forever)
-     * @notice A proposal with an expired result is the same as a proposal that has been marked invalid
-     * @notice There need to be at least 60 seconds between end of cooldown and expiration
-     * @notice This can only be called by the owner
-     */
-    function setResultExpiration(uint32 _expiration) public onlyOwner {
-        require(
-            _expiration == 0 || _expiration - cooldown >= 60,
-            "There need to be at least 60s between end of cooldown and expiration"
-        );
-        resultExpiration = _expiration;
-    }
-
-    /**
-     * @dev Initializes the contract with the given parameters.
-     * @param _initParams Initialization parameters for the contract
-     */
+    //  * @dev Initializes the contract with the given parameters.
+    //  * @param _initParams Initialization parameters for the contract
+    //  */
     function setUp(bytes memory _initParams) public override {
         (
-            address _owner,
             address _avatar,
             address _target,
             uint32 _cooldown,
             uint32 _expiration
-        ) = abi.decode(
-                _initParams,
-                (address, address, address, uint32, uint32)
-            );
-        __Ownable_init();
+        ) = abi.decode(_initParams, (address, address, uint32, uint32));
+        require(
+            !_initialized,
+            "Initializable: contract is already initialized"
+        );
+        _initialized = true;
+
         require(_avatar != address(0), "Avatar can not be zero address");
         require(_target != address(0), "Target can not be zero address");
         require(
@@ -399,8 +356,7 @@ contract TellorModule is Module, UsingTellor {
         target = _target;
         resultExpiration = _expiration;
         cooldown = _cooldown;
-        transferOwnership(_owner);
-        emit TellorModuleSetup(msg.sender, _owner, _avatar, _target);
+        emit TellorModuleSetup(msg.sender, _avatar, _target);
     }
 
     /**

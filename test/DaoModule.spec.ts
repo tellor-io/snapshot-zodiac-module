@@ -64,7 +64,6 @@ describe("TellorModuleERC20", async () => {
     const module = await Module.deploy(
       base.avatar.address,
       base.avatar.address,
-      base.avatar.address,
       base.oracle.address,
       23,
       0
@@ -72,11 +71,25 @@ describe("TellorModuleERC20", async () => {
     return { ...base, Module, module };
   });
 
+  const setupTestWithTestAvatarExpire90 = deployments.createFixture(
+    async () => {
+      const base = await baseSetup();
+      const Module = await hre.ethers.getContractFactory("TellorModule");
+      const module = await Module.deploy(
+        base.avatar.address,
+        base.avatar.address,
+        base.oracle.address,
+        23,
+        90
+      );
+      return { ...base, Module, module };
+    }
+  );
+
   const setupTestWithMockAvatar = deployments.createFixture(async () => {
     const base = await baseSetup();
     const Module = await hre.ethers.getContractFactory("TellorModule");
     const module = await Module.deploy(
-      base.mock.address,
       base.mock.address,
       base.mock.address,
       base.oracle.address,
@@ -95,7 +108,6 @@ describe("TellorModuleERC20", async () => {
         user1.address,
         user1.address,
         user1.address,
-        user1.address,
         23,
         0
       );
@@ -107,42 +119,21 @@ describe("TellorModuleERC20", async () => {
     it("throws if avatar is zero address", async () => {
       const Module = await hre.ethers.getContractFactory("TellorModule");
       await expect(
-        Module.deploy(
-          user1.address,
-          ZERO_ADDRESS,
-          user1.address,
-          user1.address,
-          23,
-          0
-        )
+        Module.deploy(ZERO_ADDRESS, user1.address, user1.address, 23, 0)
       ).to.be.revertedWith("Avatar can not be zero address");
     });
 
     it("throws if avatar is zero address", async () => {
       const Module = await hre.ethers.getContractFactory("TellorModule");
       await expect(
-        Module.deploy(
-          user1.address,
-          user1.address,
-          ZERO_ADDRESS,
-          user1.address,
-          23,
-          0
-        )
+        Module.deploy(user1.address, ZERO_ADDRESS, user1.address, 23, 0)
       ).to.be.revertedWith("Target can not be zero address");
     });
 
     it("throws if not enough time between cooldown and expiration", async () => {
       const Module = await hre.ethers.getContractFactory("TellorModule");
       await expect(
-        Module.deploy(
-          user1.address,
-          user1.address,
-          user1.address,
-          user1.address,
-          0,
-          59
-        )
+        Module.deploy(user1.address, user1.address, user1.address, 0, 59)
       ).to.be.revertedWith(
         "There need to be at least 60s between end of cooldown and expiration"
       );
@@ -150,20 +141,12 @@ describe("TellorModuleERC20", async () => {
 
     it("result expiration can be 0", async () => {
       const Module = await hre.ethers.getContractFactory("TellorModule");
-      await Module.deploy(
-        user1.address,
-        user1.address,
-        user1.address,
-        user1.address,
-        10,
-        0
-      );
+      await Module.deploy(user1.address, user1.address, user1.address, 10, 0);
     });
 
     it("should emit event because of successful set up", async () => {
       const Module = await hre.ethers.getContractFactory("TellorModule");
       const module = await Module.deploy(
-        user1.address,
         user1.address,
         user1.address,
         user1.address,
@@ -173,192 +156,7 @@ describe("TellorModuleERC20", async () => {
       await module.deployed();
       await expect(module.deployTransaction)
         .to.emit(module, "TellorModuleSetup")
-        .withArgs(user1.address, user1.address, user1.address, user1.address);
-    });
-  });
-
-  describe("setResultExpiration", async () => {
-    it("throws if Ownable: caller is not the owner", async () => {
-      const { module } = await setupTestWithTestAvatar();
-      await expect(module.setResultExpiration(2)).to.be.revertedWith(
-        "Ownable: caller is not the owner"
-      );
-    });
-
-    it("throws if not enough time between cooldown and expiration", async () => {
-      const { module, avatar } = await setupTestWithTestAvatar();
-
-      const setResultExpiration = module.interface.encodeFunctionData(
-        "setResultExpiration",
-        [40]
-      );
-      await expect(
-        avatar.exec(module.address, 0, setResultExpiration)
-      ).to.be.revertedWith(
-        "There need to be at least 60s between end of cooldown and expiration"
-      );
-
-      const setAnswerExpirationInvalid = module.interface.encodeFunctionData(
-        "setResultExpiration",
-        [99]
-      );
-      await avatar.exec(module.address, 0, setAnswerExpirationInvalid);
-
-      expect(await module.cooldown()).to.be.equals(23);
-    });
-  });
-
-  describe("markProposalAsInvalidByHash", async () => {
-    it("throws if Ownable: caller is not the owner", async () => {
-      const { module } = await setupTestWithTestAvatar();
-      const randomHash = ethers.utils.solidityKeccak256(
-        ["string"],
-        ["some_tx_data"]
-      );
-      await expect(
-        module.markProposalAsInvalidByHash(randomHash)
-      ).to.be.revertedWith("Ownable: caller is not the owner");
-    });
-
-    it("marks unknown query id as invalid", async () => {
-      const { module, avatar } = await setupTestWithTestAvatar();
-
-      const randomHash = ethers.utils.solidityKeccak256(
-        ["string"],
-        ["some_tx_data"]
-      );
-      expect(await module.queryIds(randomHash)).to.be.equals(ZERO_STATE);
-
-      const calldata = module.interface.encodeFunctionData(
-        "markProposalAsInvalidByHash",
-        [randomHash]
-      );
-      await avatar.exec(module.address, 0, calldata);
-
-      expect(await module.queryIds(randomHash)).to.be.deep.equals(
-        INVALIDATED_STATE
-      );
-    });
-
-    it("marks known query id as invalid", async () => {
-      const { module, mock, oracle, avatar } = await setupTestWithTestAvatar();
-      const id = "some_random_id";
-      const txHash = ethers.utils.solidityKeccak256(
-        ["string"],
-        ["some_tx_data"]
-      );
-      const proposal = await module.buildProposal(id, [txHash]);
-      const queryId = await module.getQueryId(id);
-      const proposalHash = ethers.utils.keccak256(
-        ethers.utils.toUtf8Bytes(proposal)
-      );
-      await mock.givenMethodReturnUint(
-        module.interface.getSighash("getQueryId"),
-        queryId
-      );
-
-      await expect(module.addProposal(id, [txHash]))
-        .to.emit(module, "ProposalAdded")
-        .withArgs(queryId, id);
-
-      expect(await module.queryIds(proposalHash)).to.be.deep.equals(
-        queryId
-      );
-
-      const calldata = module.interface.encodeFunctionData(
-        "markProposalAsInvalidByHash",
-        [proposalHash]
-      );
-      await avatar.exec(module.address, 0, calldata);
-
-      expect(await module.queryIds(proposalHash)).to.be.deep.equals(
-        INVALIDATED_STATE
-      );
-    });
-  });
-
-  describe("markProposalAsInvalid", async () => {
-    it("throws if Ownable: caller is not the owner", async () => {
-      const { module } = await setupTestWithTestAvatar();
-      const randomHash = ethers.utils.solidityKeccak256(
-        ["string"],
-        ["some_tx_data"]
-      );
-      await expect(
-        module.markProposalAsInvalid(randomHash, [randomHash])
-      ).to.be.revertedWith("Ownable: caller is not the owner");
-    });
-
-    it("marks unknown query id as invalid", async () => {
-      const { module, avatar } = await setupTestWithTestAvatar();
-
-      const id = "some_random_id";
-      const tx = {
-        to: user1.address,
-        value: 0,
-        data: "0xbaddad",
-        operation: 0,
-        nonce: 0,
-      };
-      const txHash = await module.getTransactionHash(
-        tx.to,
-        tx.value,
-        tx.data,
-        tx.operation,
-        tx.nonce
-      );
-      const proposal = await module.buildProposal(id, [txHash]);
-      const proposalHash = ethers.utils.keccak256(
-        ethers.utils.toUtf8Bytes(proposal)
-      );
-      expect(await module.queryIds(proposalHash)).to.be.equals(ZERO_STATE);
-
-      const calldata = module.interface.encodeFunctionData(
-        "markProposalAsInvalid",
-        [id, [txHash]]
-      );
-      await avatar.exec(module.address, 0, calldata);
-
-      expect(await module.queryIds(proposalHash)).to.be.deep.equals(
-        INVALIDATED_STATE
-      );
-    });
-
-    it("marks known query id as invalid", async () => {
-      const { module, mock, oracle, avatar } = await setupTestWithTestAvatar();
-      const id = "some_random_id";
-      const txHash = ethers.utils.solidityKeccak256(
-        ["string"],
-        ["some_tx_data"]
-      );
-      const proposal = await module.buildProposal(id, [txHash]);
-      const queryId = await module.getQueryId(id);
-
-      const proposalHash = ethers.utils.keccak256(
-        ethers.utils.toUtf8Bytes(proposal)
-      );
-      await mock.givenMethodReturnUint(
-        module.interface.getSighash("getQueryId"),
-        queryId
-      );
-
-      await expect(module.addProposal(id, [txHash]))
-        .to.emit(module, "ProposalAdded")
-        .withArgs(queryId, id);
-
-      expect(await module.queryIds(proposalHash)).to.be.deep.equals(
-        queryId
-      );
-
-      const calldata = module.interface.encodeFunctionData(
-        "markProposalAsInvalid",
-        [id, [txHash]]
-      );
-      await avatar.exec(module.address, 0, calldata);
-
-      expect(await module.queryIds(proposalHash)).to.be.deep.equals(
-        INVALIDATED_STATE
-      );
+        .withArgs(user1.address, user1.address, user1.address);
     });
   });
 
@@ -381,54 +179,8 @@ describe("TellorModuleERC20", async () => {
       ).to.be.revertedWith("Results are valid forever");
     });
 
-    it("throws if result is already invalidated", async () => {
-      const { module, avatar } = await setupTestWithTestAvatar();
-
-      const setResultExpiration = module.interface.encodeFunctionData(
-        "setResultExpiration",
-        [90]
-      );
-      await avatar.exec(module.address, 0, setResultExpiration);
-
-      const id = "some_random_id";
-      const tx = {
-        to: user1.address,
-        value: 0,
-        data: "0xbaddad",
-        operation: 0,
-        nonce: 0,
-      };
-      const txHash = await module.getTransactionHash(
-        tx.to,
-        tx.value,
-        tx.data,
-        tx.operation,
-        tx.nonce
-      );
-      const proposal = await module.buildProposal(id, [txHash]);
-      const proposalHash = ethers.utils.keccak256(
-        ethers.utils.toUtf8Bytes(proposal)
-      );
-
-      const markProposalAsInvalidByHash = module.interface.encodeFunctionData(
-        "markProposalAsInvalidByHash",
-        [proposalHash]
-      );
-      await avatar.exec(module.address, 0, markProposalAsInvalidByHash);
-
-      await expect(
-        module.markProposalWithExpiredResultAsInvalid(proposalHash)
-      ).to.be.revertedWith("Proposal is already invalidated");
-    });
-
     it("throws if proposal is unknown", async () => {
-      const { module, avatar } = await setupTestWithTestAvatar();
-
-      const setResultExpiration = module.interface.encodeFunctionData(
-        "setResultExpiration",
-        [90]
-      );
-      await avatar.exec(module.address, 0, setResultExpiration);
+      const { module, avatar } = await setupTestWithTestAvatarExpire90();
 
       const id = "some_random_id";
       const txHash = ethers.utils.solidityKeccak256(
@@ -446,13 +198,8 @@ describe("TellorModuleERC20", async () => {
     });
 
     it("throws if result was not accepted", async () => {
-      const { mock, module, avatar, oracle } = await setupTestWithTestAvatar();
-
-      const setResultExpiration = module.interface.encodeFunctionData(
-        "setResultExpiration",
-        [90]
-      );
-      await avatar.exec(module.address, 0, setResultExpiration);
+      const { mock, module, avatar, oracle } =
+        await setupTestWithTestAvatarExpire90();
 
       const id = "some_random_id";
       const tx = {
@@ -506,13 +253,8 @@ describe("TellorModuleERC20", async () => {
     });
 
     it("throws if result is not expired", async () => {
-      const { mock, module, avatar, oracle } = await setupTestWithTestAvatar();
-
-      const setResultExpiration = module.interface.encodeFunctionData(
-        "setResultExpiration",
-        [90]
-      );
-      await avatar.exec(module.address, 0, setResultExpiration);
+      const { mock, module, avatar, oracle } =
+        await setupTestWithTestAvatarExpire90();
 
       const id = "some_random_id";
       const tx = {
@@ -572,13 +314,8 @@ describe("TellorModuleERC20", async () => {
     });
 
     it("can mark proposal with expired accepted result as invalid", async () => {
-      const { mock, module, avatar, oracle } = await setupTestWithTestAvatar();
-
-      const setResultExpiration = module.interface.encodeFunctionData(
-        "setResultExpiration",
-        [90]
-      );
-      await avatar.exec(module.address, 0, setResultExpiration);
+      const { mock, module, avatar, oracle } =
+        await setupTestWithTestAvatarExpire90();
 
       const id = "some_random_id";
       const tx = {
@@ -715,32 +452,6 @@ describe("TellorModuleERC20", async () => {
   });
 
   describe("addProposal", async () => {
-    it("throws if proposed proposal was already invalidated before creation", async () => {
-      const { module, mock, oracle, avatar } = await setupTestWithTestAvatar();
-      const id = "some_random_id";
-      const txHash = ethers.utils.solidityKeccak256(
-        ["string"],
-        ["some_tx_data"]
-      );
-
-      const queryId = await module.getQueryId(id);
-
-      await mock.givenMethodReturnUint(
-        module.interface.getSighash("getQueryId"),
-        queryId
-      );
-
-      const markInvalid = module.interface.encodeFunctionData(
-        "markProposalAsInvalid",
-        [id, [txHash]]
-      );
-      await avatar.exec(module.address, 0, markInvalid);
-
-      await expect(module.addProposal(id, [txHash])).to.be.revertedWith(
-        "Proposal has already been submitted"
-      );
-    });
-
     it("throws if proposal was already submitted", async () => {
       const { module, mock, oracle, avatar } = await setupTestWithTestAvatar();
       const id = "some_random_id";
@@ -822,9 +533,7 @@ describe("TellorModuleERC20", async () => {
         .to.emit(module, "ProposalAdded")
         .withArgs(queryId, id);
 
-      expect(await module.queryIds(proposalHash)).to.be.deep.equals(
-        queryId
-      );
+      expect(await module.queryIds(proposalHash)).to.be.deep.equals(queryId);
     });
   });
 
@@ -847,9 +556,7 @@ describe("TellorModuleERC20", async () => {
       .to.emit(module, "ProposalAdded")
       .withArgs(queryId, id);
 
-    expect(await module.queryIds(proposalHash)).to.be.deep.equals(
-      queryId
-    );
+    expect(await module.queryIds(proposalHash)).to.be.deep.equals(queryId);
   });
 
   describe("addProposalWithNonce", async () => {
@@ -870,7 +577,6 @@ describe("TellorModuleERC20", async () => {
         previousQueryId
       );
       await module.addProposal(id, [txHash]);
-
     });
 
     it("calls askQuestionWithMinBondERC20 with correct data", async () => {
@@ -913,9 +619,7 @@ describe("TellorModuleERC20", async () => {
         queryId
       );
 
-      expect(await module.queryIds(proposalHash)).to.be.deep.equals(
-        queryId
-      );
+      expect(await module.queryIds(proposalHash)).to.be.deep.equals(queryId);
     });
 
     it("can invalidate after proposal param change", async () => {
@@ -954,9 +658,7 @@ describe("TellorModuleERC20", async () => {
         INVALIDATED_STATE
       );
 
-      expect(await module.queryIds(proposalHash)).to.be.deep.equals(
-        queryId
-      );
+      expect(await module.queryIds(proposalHash)).to.be.deep.equals(queryId);
     });
 
     it("can invalidate multiple times", async () => {
@@ -1030,15 +732,6 @@ describe("TellorModuleERC20", async () => {
       );
       const proposalParameters = [id, [txHash]];
       await module.addProposal(...proposalParameters);
-
-      const markAsInvalidCalldata = module.interface.encodeFunctionData(
-        "markProposalAsInvalid",
-        [...proposalParameters]
-      );
-      await avatar.exec(module.address, 0, markAsInvalidCalldata);
-      expect(await module.queryIds(proposalHash)).to.deep.equal(
-        INVALIDATED_STATE
-      );
 
       await mock.givenMethodReturnUint(
         module.interface.getSighash("getDataBefore"),
@@ -1126,105 +819,6 @@ describe("TellorModuleERC20", async () => {
           tx.operation
         )
       ).to.be.revertedWith("No query id set for provided proposal");
-    });
-
-    it("throws if proposal has been invalidated", async () => {
-      const { avatar, mock, module, oracle } = await setupTestWithTestAvatar();
-
-      const id = "some_random_id";
-      const tx = {
-        to: user1.address,
-        value: 0,
-        data: "0xbaddad",
-        operation: 0,
-        nonce: 0,
-      };
-      const txHash = await module.getTransactionHash(
-        tx.to,
-        tx.value,
-        tx.data,
-        tx.operation,
-        tx.nonce
-      );
-      const queryId = await module.getQueryId(id);
-
-      await mock.givenMethodReturnUint(
-        module.interface.getSighash("getQueryId"),
-        queryId
-      );
-      await module.addProposal(id, [txHash]);
-
-      const markInvalid = module.interface.encodeFunctionData(
-        "markProposalAsInvalid",
-        [id, [txHash]]
-      );
-      await avatar.exec(module.address, 0, markInvalid);
-
-      await expect(
-        module.executeProposal(
-          id,
-          [txHash],
-          tx.to,
-          tx.value,
-          tx.data,
-          tx.operation
-        )
-      ).to.be.revertedWith("Proposal has been invalidated");
-    });
-
-    it("Proposal stays invalid after proposal param updates", async () => {
-      const { avatar, mock, module, oracle } = await setupTestWithTestAvatar();
-
-      const id = "some_random_id";
-      const tx = {
-        to: user1.address,
-        value: 0,
-        data: "0xbaddad",
-        operation: 0,
-        nonce: 0,
-      };
-      const txHash = await module.getTransactionHash(
-        tx.to,
-        tx.value,
-        tx.data,
-        tx.operation,
-        tx.nonce
-      );
-      const queryId = await module.getQueryId(id);
-
-      await mock.givenMethodReturnUint(
-        module.interface.getSighash("getQueryId"),
-        queryId
-      );
-      await module.addProposal(id, [txHash]);
-
-      const markInvalid = module.interface.encodeFunctionData(
-        "markProposalAsInvalid",
-        [id, [txHash]]
-      );
-      await avatar.exec(module.address, 0, markInvalid);
-
-      await expect(
-        module.executeProposal(
-          id,
-          [txHash],
-          tx.to,
-          tx.value,
-          tx.data,
-          tx.operation
-        )
-      ).to.be.revertedWith("Proposal has been invalidated");
-
-      await expect(
-        module.executeProposal(
-          id,
-          [txHash],
-          tx.to,
-          tx.value,
-          tx.data,
-          tx.operation
-        )
-      ).to.be.revertedWith("Proposal has been invalidated");
     });
 
     it("throws if tx data doesn't belong to proposal", async () => {
@@ -1506,15 +1100,11 @@ describe("TellorModuleERC20", async () => {
     });
 
     it("throws if result expired", async () => {
-      const { mock, module, oracle, avatar } = await setupTestWithTestAvatar();
+      const { mock, module, oracle, avatar } =
+        await setupTestWithTestAvatarExpire90();
 
       await user1.sendTransaction({ to: avatar.address, value: 100 });
       await avatar.setModule(module.address);
-      const setResultExpiration = module.interface.encodeFunctionData(
-        "setResultExpiration",
-        [90]
-      );
-      await avatar.exec(module.address, 0, setResultExpiration);
 
       const id = "some_random_id";
       const tx = {
@@ -1577,30 +1167,6 @@ describe("TellorModuleERC20", async () => {
           tx.operation
         )
       ).to.be.revertedWith("Result has expired");
-
-      // Reset result expiration time, so that we can execute the transaction
-      const resetAnswerExpiration = module.interface.encodeFunctionData(
-        "setResultExpiration",
-        [0]
-      );
-      await avatar.exec(module.address, 0, resetAnswerExpiration);
-
-      expect(
-        (await hre.ethers.provider.getBalance(mock.address)).toNumber()
-      ).to.be.equals(0);
-
-      await module.executeProposal(
-        id,
-        [txHash],
-        tx.to,
-        tx.value,
-        tx.data,
-        tx.operation
-      );
-
-      expect(
-        (await hre.ethers.provider.getBalance(mock.address)).toNumber()
-      ).to.be.equals(42);
     });
 
     it("throws if tx was already executed for that proposal", async () => {
@@ -1856,9 +1422,7 @@ describe("TellorModuleERC20", async () => {
       const proposalHash = ethers.utils.keccak256(
         ethers.utils.toUtf8Bytes(proposal)
       );
-      expect(await module.queryIds(proposalHash)).to.be.deep.equals(
-        queryId
-      );
+      expect(await module.queryIds(proposalHash)).to.be.deep.equals(queryId);
       expect(
         await module.executedProposalTransactions(
           ethers.utils.solidityKeccak256(["string"], [proposal]),

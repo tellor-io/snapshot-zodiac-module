@@ -11,13 +11,7 @@ describe("Module works with factory", () => {
   const cooldown = 60;
   const expiration = 120;
 
-  const paramsTypes = [
-    "address",
-    "address",
-    "address",
-    "uint32",
-    "uint32",
-  ];
+  const paramsTypes = ["address", "address", "uint32", "uint32"];
 
   const baseSetup = deployments.createFixture(async () => {
     await deployments.fixture();
@@ -28,10 +22,9 @@ describe("Module works with factory", () => {
     const masterCopy = await TellorModule.deploy(
       FIRST_ADDRESS,
       FIRST_ADDRESS,
-      FIRST_ADDRESS,
       ZERO_ADDRESS,
       0,
-      60,
+      60
     );
 
     return { factory, masterCopy };
@@ -42,7 +35,6 @@ describe("Module works with factory", () => {
     const [safe, oracle] = await ethers.getSigners();
 
     const encodedParams = new AbiCoder().encode(paramsTypes, [
-      safe.address,
       safe.address,
       safe.address,
       cooldown,
@@ -57,13 +49,7 @@ describe("Module works with factory", () => {
   it("should deploy new Tellor module proxy", async () => {
     const { factory, masterCopy } = await baseSetup();
     const [safe, oracle] = await ethers.getSigners();
-    const paramsValues = [
-      safe.address,
-      safe.address,
-      safe.address,
-      cooldown,
-      expiration,
-    ];
+    const paramsValues = [safe.address, safe.address, cooldown, expiration];
     const encodedParams = [new AbiCoder().encode(paramsTypes, paramsValues)];
     const initParams = masterCopy.interface.encodeFunctionData(
       "setUp",
