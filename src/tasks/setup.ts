@@ -21,30 +21,30 @@ const deployTellorModule = async (
   const [caller] = await hardhatRuntime.ethers.getSigners();
   console.log("Using the account:", caller.address);
 
-  if (taskArgs.proxied) {
-    const chainId = await hardhatRuntime.getChainId();
-    const module = "tellor";
-    const { transaction } = deployAndSetUpModule(
-      module,
-      {
-        types: ["address", "address", "address", "uint32", "uint32"],
-        values: [
-          taskArgs.avatar,
-          taskArgs.target,
-          taskArgs.oracle,
-          taskArgs.cooldown,
-          taskArgs.expiration,
-        ],
-      },
-      hardhatRuntime.ethers.provider,
-      Number(chainId),
-      Date.now().toString()
-    );
-    const deploymentTransaction = await caller.sendTransaction(transaction);
-    const receipt = await deploymentTransaction.wait();
-    console.log("Module deployed to:", receipt.logs[1].address);
-    return;
-  }
+  // if (taskArgs.proxied) {
+  //   const chainId = await hardhatRuntime.getChainId();
+  //   const module = "tellor";
+  //   const { transaction } = deployAndSetUpModule(
+  //     module,
+  //     {
+  //       types: ["address", "address", "address", "uint32", "uint32"],
+  //       values: [
+  //         taskArgs.avatar,
+  //         taskArgs.target,
+  //         taskArgs.oracle,
+  //         taskArgs.cooldown,
+  //         taskArgs.expiration,
+  //       ],
+  //     },
+  //     hardhatRuntime.ethers.provider,
+  //     Number(chainId),
+  //     Date.now().toString()
+  //   );
+  //   const deploymentTransaction = await caller.sendTransaction(transaction);
+  //   const receipt = await deploymentTransaction.wait();
+  //   console.log("Module deployed to:", receipt.logs[1].address);
+  //   return;
+  // }
 
   const ModuleName = "TellorModule";
   const Module = await hardhatRuntime.ethers.getContractFactory(ModuleName);
