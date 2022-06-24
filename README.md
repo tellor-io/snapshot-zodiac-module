@@ -4,7 +4,7 @@
 
 The Tellor Module belongs to the [Zodiac](https://github.com/gnosis/zodiac) collection of tools, which can be accessed through the Zodiac App available on [Gnosis Safe](https://gnosis-safe.io/), as well as in this repository. 
 
-If you have any questions about the Tellor Module the [Tellor Discord](https://discord.gg/tellor).
+If you have any questions about the Tellor Module, join the [Tellor Discord](https://discord.gg/tellor).
 For more information about the Zodiac collection of tools, join the [Gnosis Discord](https://discord.gg/wwmBWTgyEq).
 
 ### About the Tellor Module
