@@ -13,7 +13,7 @@ contract TellorModule is Module, UsingTellor {
         address target
     );
     // Storage
-    bool private _initialized;
+    bool private initialized;
     uint32 public resultExpiration;
     bytes32 public constant DOMAIN_SEPARATOR_TYPEHASH =
         0x47e79534a245952e8b16893a336b85a3d9ea9fa8c573f3d803afb92a79469218;
@@ -53,6 +53,7 @@ contract TellorModule is Module, UsingTellor {
         bytes memory initParams = abi.encode(
             _avatar,
             _target,
+            _tellorAddress,
             _cooldown,
             _expiration
         );
@@ -337,14 +338,18 @@ contract TellorModule is Module, UsingTellor {
         (
             address _avatar,
             address _target,
+            address _tellorAddress,
             uint32 _cooldown,
             uint32 _expiration
-        ) = abi.decode(_initParams, (address, address, uint32, uint32));
+        ) = abi.decode(
+                _initParams,
+                (address, address, address, uint32, uint32)
+            );
         require(
-            !_initialized,
+            !initialized,
             "Initializable: contract is already initialized"
         );
-        _initialized = true;
+        initialized = true;
 
         require(_avatar != address(0), "Avatar can not be zero address");
         require(_target != address(0), "Target can not be zero address");
@@ -354,6 +359,7 @@ contract TellorModule is Module, UsingTellor {
         );
         avatar = _avatar;
         target = _target;
+        tellor = ITellor(payable(_tellorAddress));
         resultExpiration = _expiration;
         cooldown = _cooldown;
         emit TellorModuleSetup(msg.sender, _avatar, _target);
