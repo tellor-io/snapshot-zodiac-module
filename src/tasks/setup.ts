@@ -48,12 +48,20 @@ const deployTellorModule = async (
 
   const ModuleName = "TellorModule";
   const Module = await hardhatRuntime.ethers.getContractFactory(ModuleName);
+  // get address nonce
+  const nonce = await hardhatRuntime.ethers.provider.getTransactionCount(
+    caller.address
+  );
+  const overrides = {
+    nonce: nonce,
+  };
   const module = await Module.deploy(
     taskArgs.avatar,
     taskArgs.target,
     taskArgs.oracle,
     taskArgs.cooldown,
-    taskArgs.expiration
+    taskArgs.expiration,
+    overrides
   );
   await module.deployTransaction.wait();
   console.log("Module deployed to:", module.address);
