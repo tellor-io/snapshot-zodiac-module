@@ -56,9 +56,9 @@ export default {
     },
     goerli: {
       ...sharedNetworkConfig,
-      url: `${INFURA_KEY}`,
-      // gas: 2000000,
-      // gasPrice: 67E9,
+      url: `https://georli.infura.io/v3/${INFURA_KEY}`,
+      gas: 10000000,
+      gasPrice: 40000000000,
     },
     xdai: {
       ...sharedNetworkConfig,
