@@ -54,11 +54,11 @@ export default {
       ...sharedNetworkConfig,
       url: `https://mainnet.infura.io/v3/${INFURA_KEY}`,
     },
-    rinkeby: {
+    goerli: {
       ...sharedNetworkConfig,
-      url: `https://rinkeby.infura.io/v3/${INFURA_KEY}`,
-      gas: 10000000,
-      gasPrice: 40000000000,
+      url: `${INFURA_KEY}`,
+      // gas: 2000000,
+      // gasPrice: 67E9,
     },
     xdai: {
       ...sharedNetworkConfig,

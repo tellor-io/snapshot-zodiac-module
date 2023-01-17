@@ -55,7 +55,7 @@ const deployTellorModule = async (
     taskArgs.cooldown,
     taskArgs.expiration
   );
-  await module.deployTransaction.wait();
+  await module.deployed();
   console.log("Module deployed to:", module.address);
 
   // Wait for few confirmed transactions.

@@ -61,7 +61,7 @@
     "dotenv": "^8.0.0",
     "ethers": "^5.0.19",
     "solc": "0.8.1",
-    "usingtellor": "^4.0.6",
+    "usingtellor": "^5.0.4",
     "yargs": "^16.1.1"
   },
   "resolutions": {
