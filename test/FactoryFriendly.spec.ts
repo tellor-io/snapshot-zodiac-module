@@ -21,6 +21,7 @@ describe("Module works with factory", () => {
 
     const masterCopy = await TellorModule.deploy(
       FIRST_ADDRESS,
+      FIRST_ADDRESS,
       ZERO_ADDRESS,
       0,
       60
@@ -34,6 +35,7 @@ describe("Module works with factory", () => {
     const [safe, oracle] = await ethers.getSigners();
 
     const encodedParams = new AbiCoder().encode(paramsTypes, [
+      safe.address,
       safe.address,
       oracle.address,
       cooldown,

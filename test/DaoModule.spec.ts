@@ -63,6 +63,7 @@ describe("TellorModuleERC20", async () => {
     const Module = await hre.ethers.getContractFactory("TellorModule");
     const module = await Module.deploy(
       base.avatar.address,
+      base.avatar.address,
       base.oracle.address,
       23,
       0
@@ -76,6 +77,7 @@ describe("TellorModuleERC20", async () => {
       const Module = await hre.ethers.getContractFactory("TellorModule");
       const module = await Module.deploy(
         base.avatar.address,
+        base.avatar.address,
         base.oracle.address,
         23,
         90
@@ -88,6 +90,7 @@ describe("TellorModuleERC20", async () => {
     const base = await baseSetup();
     const Module = await hre.ethers.getContractFactory("TellorModule");
     const module = await Module.deploy(
+      base.mock.address,
       base.mock.address,
       base.oracle.address,
       23,
@@ -104,6 +107,7 @@ describe("TellorModuleERC20", async () => {
       const module = await Module.deploy(
         user1.address,
         user1.address,
+        user1.address,
         23,
         0
       );
@@ -115,14 +119,21 @@ describe("TellorModuleERC20", async () => {
     it("throws if avatar is zero address", async () => {
       const Module = await hre.ethers.getContractFactory("TellorModule");
       await expect(
-        Module.deploy(ZERO_ADDRESS, user1.address, 23, 0)
+        Module.deploy(ZERO_ADDRESS, user1.address, user1.address, 23, 0)
       ).to.be.revertedWith("Avatar can not be zero address");
+    });
+
+    it("throws if avatar is zero address", async () => {
+      const Module = await hre.ethers.getContractFactory("TellorModule");
+      await expect(
+        Module.deploy(user1.address, ZERO_ADDRESS, user1.address, 23, 0)
+      ).to.be.revertedWith("Target can not be zero address");
     });
 
     it("throws if not enough time between cooldown and expiration", async () => {
       const Module = await hre.ethers.getContractFactory("TellorModule");
       await expect(
-        Module.deploy(user1.address, user1.address, 0, 59)
+        Module.deploy(user1.address, user1.address, user1.address, 0, 59)
       ).to.be.revertedWith(
         "There need to be at least 60s between end of cooldown and expiration"
       );
@@ -130,12 +141,13 @@ describe("TellorModuleERC20", async () => {
 
     it("result expiration can be 0", async () => {
       const Module = await hre.ethers.getContractFactory("TellorModule");
-      await Module.deploy(user1.address, user1.address, 10, 0);
+      await Module.deploy(user1.address, user1.address, user1.address, 10, 0);
     });
 
     it("should emit event because of successful set up", async () => {
       const Module = await hre.ethers.getContractFactory("TellorModule");
       const module = await Module.deploy(
+        user1.address,
         user1.address,
         user1.address,
         10,
@@ -144,7 +156,7 @@ describe("TellorModuleERC20", async () => {
       await module.deployed();
       await expect(module.deployTransaction)
         .to.emit(module, "TellorModuleSetup")
-        .withArgs(user1.address, user1.address);
+        .withArgs(user1.address, user1.address, user1.address);
     });
   });
 
@@ -842,7 +854,7 @@ describe("TellorModuleERC20", async () => {
           tx.to,
           tx.value,
           tx.data,
-          tx.operation,
+          tx.operation
         )
       ).to.be.revertedWith("Unexpected transaction hash");
     });
