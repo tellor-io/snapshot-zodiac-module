@@ -1036,6 +1036,171 @@ describe("TellorModuleERC20", async () => {
       ).to.be.equals(true);
     });
 
+    it("throws if oracle submission disputed", async () => {
+      const { avatar, mock, module, oracle } = await setupTestWithTestAvatar();
+
+      const id = "some_random_id";
+      const tx = {
+        to: user1.address,
+        value: 0,
+        data: "0xbaddad",
+        operation: 0,
+        nonce: 0,
+      };
+      const txHash = await module.getTransactionHash(
+        tx.to,
+        tx.value,
+        tx.data,
+        tx.operation,
+        tx.nonce
+      );
+      const proposal = await module.buildProposal(id, [txHash]);
+      const queryId = await module.getQueryId(id);
+
+      await mock.givenMethodReturnUint(
+        module.interface.getSighash("getQueryId"),
+        queryId
+      );
+      await module.addProposal(id, [txHash]);
+
+      await avatar.setModule(module.address);
+
+      const block = await ethers.provider.getBlock("latest");
+      await mock.reset();
+
+      await mock.givenMethodReturnBool(
+        module.interface.getSighash("getDataBefore"),
+        true
+      );
+      await mock.givenMethodReturnUint(
+        oracle.interface.getSighash("getTimestampbyQueryIdandIndex"),
+        block.timestamp
+      );
+
+      //submit to the oracle first
+      const queryDataArgs = abiCoder.encode(["string"], [id]);
+      const queryData = abiCoder.encode(
+        ["string", "bytes"],
+        ["Snapshot", queryDataArgs]
+      );
+
+      await oracle.submitValue(
+        queryId,
+        abiCoder.encode(["bool"], [true]),
+        0,
+        queryData
+      );
+
+      const blocky = await h.getBlock()
+      await oracle.beginDispute(queryId, blocky.timestamp)
+
+      await h.advanceTime(23);
+
+      await expect(
+        module.executeProposal(
+          id,
+          [txHash],
+          tx.to,
+          tx.value,
+          tx.data,
+          tx.operation
+        )
+      ).to.be.revertedWith("Data not retrieved");
+
+      expect(
+        await module.executedProposalTransactions(
+          ethers.utils.solidityKeccak256(["string"], [proposal]),
+          txHash
+        )
+      ).to.be.equals(false);
+    });
+
+    it("reads nondisputed oracle submission", async () => {
+      const { avatar, mock, module, oracle } = await setupTestWithTestAvatar();
+
+      const id = "some_random_id";
+      const tx = {
+        to: user1.address,
+        value: 0,
+        data: "0xbaddad",
+        operation: 0,
+        nonce: 0,
+      };
+      const txHash = await module.getTransactionHash(
+        tx.to,
+        tx.value,
+        tx.data,
+        tx.operation,
+        tx.nonce
+      );
+      const proposal = await module.buildProposal(id, [txHash]);
+      const queryId = await module.getQueryId(id);
+
+      await mock.givenMethodReturnUint(
+        module.interface.getSighash("getQueryId"),
+        queryId
+      );
+      await module.addProposal(id, [txHash]);
+
+      await avatar.setModule(module.address);
+
+      const block = await ethers.provider.getBlock("latest");
+      await mock.reset();
+
+      await mock.givenMethodReturnBool(
+        module.interface.getSighash("getDataBefore"),
+        true
+      );
+      await mock.givenMethodReturnUint(
+        oracle.interface.getSighash("getTimestampbyQueryIdandIndex"),
+        block.timestamp
+      );
+
+      //submit to the oracle first
+      const queryDataArgs = abiCoder.encode(["string"], [id]);
+      const queryData = abiCoder.encode(
+        ["string", "bytes"],
+        ["Snapshot", queryDataArgs]
+      );
+
+      await oracle.submitValue(
+        queryId,
+        abiCoder.encode(["bool"], [true]),
+        0,
+        queryData
+      );
+
+      await oracle.submitValue(
+        queryId,
+        abiCoder.encode(["bool"], [false]),
+        0,
+        queryData
+      );
+
+      const blocky2 = await h.getBlock()
+
+      await oracle.beginDispute(queryId, blocky2.timestamp)
+
+      await h.advanceTime(23);
+
+      await module.executeProposal(
+        id,
+        [txHash],
+        tx.to,
+        tx.value,
+        tx.data,
+        tx.operation
+      );
+
+      expect(
+        await module.executedProposalTransactions(
+          ethers.utils.solidityKeccak256(["string"], [proposal]),
+          txHash
+        )
+      ).to.be.equals(true);
+    });
+      
+
     it("throws if cooldown was not over", async () => {
       const { mock, module, oracle } = await setupTestWithMockAvatar();
 

@@ -166,11 +166,10 @@ contract TellorModule is Module, UsingTellor {
         );
         require(_txHashes[_txIndex] == _txHash, "Unexpected transaction hash");
         (
-            bool _ifRetrieve,
             bytes memory _valueRetrieved,
             uint256 _timestampReceived
         ) = getDataBefore(_queryId, block.timestamp);
-        require(_ifRetrieve, "Data not retrieved");
+        require(_timestampReceived > 0, "Data not retrieved");
         // The result is valid in the time after the cooldown and before the expiration time (if set).
         require(
             _timestampReceived + uint256(cooldown) < block.timestamp,
@@ -315,11 +314,10 @@ contract TellorModule is Module, UsingTellor {
             "No query id set for provided proposal"
         );
         (
-            bool _ifRetrieve,
             bytes memory _valueRetrieved,
             uint256 _timestampRetrieved
         ) = getDataBefore(_queryId, block.timestamp);
-        require(_ifRetrieve, "Data not retrieved");
+        require(_timestampRetrieved > 0, "Data not retrieved");
         bool _didPass = abi.decode(_valueRetrieved, (bool));
         require(_didPass, "Transaction was not approved");
         require(

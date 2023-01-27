@@ -47,16 +47,16 @@ export default {
     sources: "contracts",
   },
   solidity: {
-    compilers: [{ version: "0.8.0" }, { version: "0.6.12" }],
+    compilers: [{ version: "0.8.7" }, { version: "0.6.12" }],
   },
   networks: {
     mainnet: {
       ...sharedNetworkConfig,
       url: `https://mainnet.infura.io/v3/${INFURA_KEY}`,
     },
-    rinkeby: {
+    goerli: {
       ...sharedNetworkConfig,
-      url: `https://rinkeby.infura.io/v3/${INFURA_KEY}`,
+      url: `https://goerli.infura.io/v3/${INFURA_KEY}`,
       gas: 10000000,
       gasPrice: 40000000000,
     },
