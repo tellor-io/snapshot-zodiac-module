@@ -78,7 +78,7 @@ contract TellorModule is Module, UsingTellor {
             queryIds[_proposalHash] == bytes32(0),
             "Proposal has already been submitted"
         );
-        bytes32 _queryId = getQueryId(_proposalId);
+        bytes32 _queryId = getQueryId(_proposalId, _txHashes);
         // Set the proposal hash for this query id
         queryIds[_proposalHash] = _queryId;
         emit ProposalAdded(_queryId, _proposalId);
@@ -171,11 +171,11 @@ contract TellorModule is Module, UsingTellor {
         (
             bytes memory _valueRetrieved,
             uint256 _timestampReceived
-        ) = getDataBefore(_queryId, block.timestamp);
+        ) = getDataBefore(_queryId, block.timestamp); // change to getDataAfter(ts=0)
         require(_timestampReceived > 0, "Data not retrieved");
         // The result is valid in the time after the cooldown and before the expiration time (if set).
         require(
-            _timestampReceived + uint256(cooldown) < block.timestamp,
+            _timestampReceived + uint256(cooldown) < block.timestamp, 
             "Wait for additional cooldown"
         );
         bool _didPass = abi.decode(_valueRetrieved, (bool));
@@ -237,13 +237,14 @@ contract TellorModule is Module, UsingTellor {
      * @param _proposalId Id that should identify the proposal uniquely
      * @notice It is required that this is the same as for the oracle implementation used.
      */
-    function getQueryId(string memory _proposalId)
+    function getQueryId(string memory _proposalId, bytes32[] memory _txHashes)
         public
-        pure
+        view
         returns (bytes32)
     {
+        bytes32 _superHash = keccak256(abi.encode(_txHashes));
         bytes32 _queryId = keccak256(
-            abi.encode("Snapshot", abi.encode(_proposalId))
+            abi.encode("Snapshot", abi.encode(_proposalId, _superHash, address(this)))
         );
         return _queryId;
     }
@@ -343,7 +344,7 @@ contract TellorModule is Module, UsingTellor {
         (
             bytes memory _valueRetrieved,
             uint256 _timestampRetrieved
-        ) = getDataBefore(_queryId, block.timestamp);
+        ) = getDataBefore(_queryId, block.timestamp);  // change to getDataAfter(ts=0)
         require(_timestampRetrieved > 0, "Data not retrieved");
         bool _didPass = abi.decode(_valueRetrieved, (bool));
         require(_didPass, "Transaction was not approved");
