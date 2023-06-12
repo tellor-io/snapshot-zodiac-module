@@ -1974,6 +1974,105 @@ describe("TellorModuleERC20", async () => {
         2
       );
     });
+
+    it("can't execute arbitrary non-approved tx", async () => {
+      const { avatar, mock, module, oracle } = await setupTestWithMockAvatar();
+
+      const id = "some_random_id";
+      const tx = {
+        to: user1.address,
+        value: 0,
+        data: "0xbaddad",
+        operation: 0,
+        nonce: 0,
+      };
+      const txHash = await module.getTransactionHash(
+        tx.to,
+        tx.value,
+        tx.data,
+        tx.operation,
+        tx.nonce
+      );
+
+      const txBad = {
+        to: user1.address,
+        value: 0,
+        data: "0xbad000",
+        operation: 0,
+        nonce: 0,
+      };
+      const txBadHash = await module.getTransactionHash(
+        txBad.to,
+        txBad.value,
+        txBad.data,
+        txBad.operation,
+        txBad.nonce
+      );
+
+      const proposal = await module.buildProposal(id, [txHash]);
+      const queryId = await module.getQueryId(id, [txHash]);
+
+      await mock.givenMethodReturnUint(
+        module.interface.getSighash("getQueryId"),
+        queryId
+      );
+
+      //submit to the oracle first
+      const queryDataArgs = getQueryDataArgs(id, [txHash], module.address);
+      const queryData = abiCoder.encode(
+        ["string", "bytes"],
+        ["Snapshot", queryDataArgs]
+      );
+
+      await oracle.submitValue(
+        queryId,
+        abiCoder.encode(["bool"], [true]),
+        0,
+        queryData
+      );
+
+      await module.addProposal(id, [txHash]);
+
+      const block = await ethers.provider.getBlock("latest");
+      await mock.reset();
+      await mock.givenMethodReturnBool(
+        module.interface.getSighash("getDataBefore"),
+        true
+      );
+      await mock.givenMethodReturnUint(
+        oracle.interface.getSighash("getTimestampbyQueryIdandIndex"),
+        block.timestamp
+      );
+      await mock.givenMethodReturnBool(
+        avatar.interface.getSighash("execTransactionFromModule"),
+        true
+      );
+
+      await h.advanceTime(24);
+
+      await expect(
+        module.executeProposal(
+          id,
+          [txBadHash],
+          txBad.to,
+          txBad.value,
+          txBad.data,
+          txBad.operation       
+        )
+      ).to.be.revertedWith("No query id set for provided proposal");
+
+      await expect(
+        module.executeProposal(
+          id,
+          [txHash],
+          txBad.to,
+          txBad.value,
+          txBad.data,
+          txBad.operation       
+        )
+      ).to.be.revertedWith("Unexpected transaction hash");
+
+    });
     
   });
 
