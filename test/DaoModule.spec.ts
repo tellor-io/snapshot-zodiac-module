@@ -43,7 +43,7 @@ const INVALIDATED_STATE =
 const ZERO_STATE =
   "0x0000000000000000000000000000000000000000000000000000000000000000";
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
-const OWNER_ADDRESS = "0x0000000000000000000000000000000000000001";
+let OWNER_ADDRESS = "0x0000000000000000000000000000000000000001";
 
 describe("TellorModuleERC20", async () => {
   const baseSetup = deployments.createFixture(async () => {
@@ -91,6 +91,8 @@ describe("TellorModuleERC20", async () => {
   );
 
   const setupTestWithMockAvatar = deployments.createFixture(async () => {
+    const [addr1, owner] = await ethers.getSigners();
+    const OWNER_ADDRESS = owner.address;
     const base = await baseSetup();
     const Module = await hre.ethers.getContractFactory("TellorModule");
     const module = await Module.deploy(
@@ -1973,6 +1975,144 @@ describe("TellorModuleERC20", async () => {
       );
     });
     
+  });
+
+  describe("markProposalAsInvalid", () => {
+    it("execution throws if tx marked invalid", async () => {
+      const { mock, module, oracle } = await setupTestWithMockAvatar();
+
+      const id = "some_random_id";
+      const tx = {
+        to: user1.address,
+        value: 0,
+        data: "0xbaddad",
+        operation: 0,
+        nonce: 0,
+      };
+      const txHash = await module.getTransactionHash(
+        tx.to,
+        tx.value,
+        tx.data,
+        tx.operation,
+        tx.nonce
+      );
+      const queryId = await module.getQueryId(id, [txHash]);
+
+      await mock.givenMethodReturnUint(
+        module.interface.getSighash("getQueryId"),
+        queryId
+      );
+
+      //submit to the oracle first
+      const queryDataArgs = getQueryDataArgs(id, [txHash], module.address);
+      const queryData = abiCoder.encode(
+        ["string", "bytes"],
+        ["Snapshot", queryDataArgs]
+      );
+
+      await oracle.submitValue(
+        queryId,
+        abiCoder.encode(["bool"], [true]),
+        0,
+        queryData
+      );
+
+      await h.advanceTime(23);
+
+      await module.addProposal(id, [txHash]);
+
+      await mock.givenMethodReturnBool(
+        module.interface.getSighash("getDataBefore"),
+        false
+      );
+
+      const [addr1, owner] = await ethers.getSigners();
+      await module.connect(owner).markProposalAsInvalid(id, [txHash]);
+
+      await expect(
+        module.executeProposal(
+          id,
+          [txHash],
+          tx.to,
+          tx.value,
+          tx.data,
+          tx.operation
+        )
+      ).to.be.revertedWith("Proposal has been invalidated");
+    });
+
+    it("only owner can mark invalid", async () => {
+      const { avatar, mock, module, oracle } = await setupTestWithMockAvatar();
+
+      const id = "some_random_id";
+      const tx = {
+        to: user1.address,
+        value: 0,
+        data: "0xbaddad",
+        operation: 0,
+        nonce: 0,
+      };
+      const txHash = await module.getTransactionHash(
+        tx.to,
+        tx.value,
+        tx.data,
+        tx.operation,
+        tx.nonce
+      );
+      const proposal = await module.buildProposal(id, [txHash]);
+      const queryId = await module.getQueryId(id, [txHash]);
+
+      await mock.givenMethodReturnUint(
+        module.interface.getSighash("getQueryId"),
+        queryId
+      );
+
+      //submit to the oracle first
+      const queryDataArgs = getQueryDataArgs(id, [txHash], module.address);
+      const queryData = abiCoder.encode(
+        ["string", "bytes"],
+        ["Snapshot", queryDataArgs]
+      );
+
+      await oracle.submitValue(
+        queryId,
+        abiCoder.encode(["bool"], [true]),
+        0,
+        queryData
+      );
+
+      await module.addProposal(id, [txHash]);
+
+      const block = await ethers.provider.getBlock("latest");
+      await mock.reset();
+      await mock.givenMethodReturnBool(
+        module.interface.getSighash("getDataBefore"),
+        true
+      );
+      await mock.givenMethodReturnUint(
+        oracle.interface.getSighash("getTimestampbyQueryIdandIndex"),
+        block.timestamp
+      );
+      await mock.givenMethodReturnBool(
+        avatar.interface.getSighash("execTransactionFromModule"),
+        true
+      );
+
+      await h.advanceTime(24);
+
+      await expect(
+        module.markProposalAsInvalid(id, [txHash])
+      ).to.be.revertedWith("Ownable: caller is not the owner");
+
+      await module.executeProposal(
+        id,
+        [txHash],
+        tx.to,
+        tx.value,
+        tx.data,
+        tx.operation
+      );
+    });
   });
 
 });
