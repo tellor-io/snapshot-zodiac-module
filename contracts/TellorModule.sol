@@ -36,6 +36,7 @@ contract TellorModule is Module, UsingTellor {
     // );
     /*Functions*/
     /**
+     * @param _owner Address of the owner of the module
      * @param _avatar Address of the avatar (e.g. a Safe)
      * @param _target Address of the contract that will call exec function
      * @param _tellorAddress Address of the Tellor oracle contract
@@ -44,6 +45,7 @@ contract TellorModule is Module, UsingTellor {
      * @notice There need to be at least 60 seconds between end of cooldown and expiration
      */
     constructor(
+        address _owner,
         address _avatar,
         address _target,
         address payable _tellorAddress,
@@ -51,6 +53,7 @@ contract TellorModule is Module, UsingTellor {
         uint32 _expiration
     ) UsingTellor(_tellorAddress) {
         bytes memory initParams = abi.encode(
+            _owner,
             _avatar,
             _target,
             _tellorAddress,
@@ -75,7 +78,7 @@ contract TellorModule is Module, UsingTellor {
             queryIds[_proposalHash] == bytes32(0),
             "Proposal has already been submitted"
         );
-        bytes32 _queryId = getQueryId(_proposalId);
+        bytes32 _queryId = getQueryId(_proposalId, _txHashes);
         // Set the proposal hash for this query id
         queryIds[_proposalHash] = _queryId;
         emit ProposalAdded(_queryId, _proposalId);
@@ -168,11 +171,11 @@ contract TellorModule is Module, UsingTellor {
         (
             bytes memory _valueRetrieved,
             uint256 _timestampReceived
-        ) = getDataBefore(_queryId, block.timestamp);
+        ) = getDataBefore(_queryId, block.timestamp); // change to getDataAfter(ts=0)
         require(_timestampReceived > 0, "Data not retrieved");
         // The result is valid in the time after the cooldown and before the expiration time (if set).
         require(
-            _timestampReceived + uint256(cooldown) < block.timestamp,
+            _timestampReceived + uint256(cooldown) < block.timestamp, 
             "Wait for additional cooldown"
         );
         bool _didPass = abi.decode(_valueRetrieved, (bool));
@@ -205,18 +208,43 @@ contract TellorModule is Module, UsingTellor {
         );
     }
 
+    /// @dev Marks a proposal as invalid, preventing execution of the connected transactions
+    /// @param _proposalId Id that should identify the proposal uniquely
+    /// @param _txHashes EIP-712 hashes of the transactions that should be executed
+    /// @notice This can only be called by the owner
+    function markProposalAsInvalid(
+        string memory _proposalId,
+        bytes32[] memory _txHashes // owner only is checked in markProposalAsInvalidByHash(bytes32)
+    ) public {
+        // We generate the proposal string used for the oracle
+        string memory _proposal = buildProposal(_proposalId, _txHashes);
+        bytes32 _proposalHash = keccak256(bytes(_proposal));
+        markProposalAsInvalidByHash(_proposalHash);
+    }
+
+    /// @dev Marks a question hash as invalid, preventing execution of the connected transactions
+    /// @param _proposalHash Proposal hash calculated based on the proposal id and txHashes
+    /// @notice This can only be called by the owner
+    function markProposalAsInvalidByHash(bytes32 _proposalHash)
+        public
+        onlyOwner
+    {
+        queryIds[_proposalHash] = INVALIDATED;
+    }
+
     /**
      * @dev Generate the query id.
      * @param _proposalId Id that should identify the proposal uniquely
      * @notice It is required that this is the same as for the oracle implementation used.
      */
-    function getQueryId(string memory _proposalId)
+    function getQueryId(string memory _proposalId, bytes32[] memory _txHashes)
         public
-        pure
+        view
         returns (bytes32)
     {
+        bytes32 _superHash = keccak256(abi.encode(_txHashes));
         bytes32 _queryId = keccak256(
-            abi.encode("Snapshot", abi.encode(_proposalId))
+            abi.encode("Snapshot", abi.encode(_proposalId, _superHash, address(this)))
         );
         return _queryId;
     }
@@ -316,7 +344,7 @@ contract TellorModule is Module, UsingTellor {
         (
             bytes memory _valueRetrieved,
             uint256 _timestampRetrieved
-        ) = getDataBefore(_queryId, block.timestamp);
+        ) = getDataBefore(_queryId, block.timestamp);  // change to getDataAfter(ts=0)
         require(_timestampRetrieved > 0, "Data not retrieved");
         bool _didPass = abi.decode(_valueRetrieved, (bool));
         require(_didPass, "Transaction was not approved");
@@ -334,6 +362,7 @@ contract TellorModule is Module, UsingTellor {
     //  */
     function setUp(bytes memory _initParams) public override {
         (
+            address _owner,
             address _avatar,
             address _target,
             address _tellorAddress,
@@ -341,14 +370,14 @@ contract TellorModule is Module, UsingTellor {
             uint32 _expiration
         ) = abi.decode(
                 _initParams,
-                (address, address, address, uint32, uint32)
+                (address, address, address, address, uint32, uint32)
             );
         require(
             !initialized,
             "Initializable: contract is already initialized"
         );
         initialized = true;
-
+        __Ownable_init();
         require(_avatar != address(0), "Avatar can not be zero address");
         require(_target != address(0), "Target can not be zero address");
         require(
@@ -360,6 +389,9 @@ contract TellorModule is Module, UsingTellor {
         tellor = ITellor(payable(_tellorAddress));
         resultExpiration = _expiration;
         cooldown = _cooldown;
+
+        transferOwnership(_owner);
+
         emit TellorModuleSetup(msg.sender, _avatar, _target);
     }
 

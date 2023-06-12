@@ -3,6 +3,7 @@ import hre, { deployments, ethers, waffle } from "hardhat";
 import "@nomiclabs/hardhat-ethers";
 import { buildMockInitializerParams } from "./utils";
 import { _TypedDataEncoder } from "@ethersproject/hash";
+import { keccak256 } from "ethers/lib/utils";
 const h = require("usingtellor/test/helpers/helpers.js");
 
 const abiCoder = new ethers.utils.AbiCoder();
@@ -42,6 +43,7 @@ const INVALIDATED_STATE =
 const ZERO_STATE =
   "0x0000000000000000000000000000000000000000000000000000000000000000";
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+let OWNER_ADDRESS = "0x0000000000000000000000000000000000000001";
 
 describe("TellorModuleERC20", async () => {
   const baseSetup = deployments.createFixture(async () => {
@@ -62,6 +64,7 @@ describe("TellorModuleERC20", async () => {
     const base = await baseSetup();
     const Module = await hre.ethers.getContractFactory("TellorModule");
     const module = await Module.deploy(
+      OWNER_ADDRESS,
       base.avatar.address,
       base.avatar.address,
       base.oracle.address,
@@ -76,6 +79,7 @@ describe("TellorModuleERC20", async () => {
       const base = await baseSetup();
       const Module = await hre.ethers.getContractFactory("TellorModule");
       const module = await Module.deploy(
+        OWNER_ADDRESS,
         base.avatar.address,
         base.avatar.address,
         base.oracle.address,
@@ -87,9 +91,12 @@ describe("TellorModuleERC20", async () => {
   );
 
   const setupTestWithMockAvatar = deployments.createFixture(async () => {
+    const [addr1, owner] = await ethers.getSigners();
+    const OWNER_ADDRESS = owner.address;
     const base = await baseSetup();
     const Module = await hre.ethers.getContractFactory("TellorModule");
     const module = await Module.deploy(
+      OWNER_ADDRESS,
       base.mock.address,
       base.mock.address,
       base.oracle.address,
@@ -100,11 +107,22 @@ describe("TellorModuleERC20", async () => {
   });
   const [user1] = waffle.provider.getWallets();
 
+  const getQueryDataArgs = (proposalId: string, txHashes: string[], module: string) => {
+    const encodedTxHashes = abiCoder.encode(["bytes32[]"], [txHashes]);
+    const superHash = keccak256(encodedTxHashes);
+    const encoded = abiCoder.encode(
+      ["string", "bytes32", "address"],
+      [proposalId, superHash, module]
+    )
+    return encoded;
+  }
+
   describe("setUp", async () => {
     it("throws if is already initialized", async () => {
       const { mock } = await baseSetup();
       const Module = await hre.ethers.getContractFactory("TellorModule");
       const module = await Module.deploy(
+        OWNER_ADDRESS,
         user1.address,
         user1.address,
         user1.address,
@@ -119,21 +137,21 @@ describe("TellorModuleERC20", async () => {
     it("throws if avatar is zero address", async () => {
       const Module = await hre.ethers.getContractFactory("TellorModule");
       await expect(
-        Module.deploy(ZERO_ADDRESS, user1.address, user1.address, 23, 0)
+        Module.deploy(OWNER_ADDRESS, ZERO_ADDRESS, user1.address, user1.address, 23, 0)
       ).to.be.revertedWith("Avatar can not be zero address");
     });
 
     it("throws if avatar is zero address", async () => {
       const Module = await hre.ethers.getContractFactory("TellorModule");
       await expect(
-        Module.deploy(user1.address, ZERO_ADDRESS, user1.address, 23, 0)
+        Module.deploy(OWNER_ADDRESS, user1.address, ZERO_ADDRESS, user1.address, 23, 0)
       ).to.be.revertedWith("Target can not be zero address");
     });
 
     it("throws if not enough time between cooldown and expiration", async () => {
       const Module = await hre.ethers.getContractFactory("TellorModule");
       await expect(
-        Module.deploy(user1.address, user1.address, user1.address, 0, 59)
+        Module.deploy(OWNER_ADDRESS, user1.address, user1.address, user1.address, 0, 59)
       ).to.be.revertedWith(
         "There need to be at least 60s between end of cooldown and expiration"
       );
@@ -141,12 +159,13 @@ describe("TellorModuleERC20", async () => {
 
     it("result expiration can be 0", async () => {
       const Module = await hre.ethers.getContractFactory("TellorModule");
-      await Module.deploy(user1.address, user1.address, user1.address, 10, 0);
+      await Module.deploy(OWNER_ADDRESS, user1.address, user1.address, user1.address, 10, 0);
     });
 
     it("should emit event because of successful set up", async () => {
       const Module = await hre.ethers.getContractFactory("TellorModule");
       const module = await Module.deploy(
+        OWNER_ADDRESS,
         user1.address,
         user1.address,
         user1.address,
@@ -217,7 +236,7 @@ describe("TellorModuleERC20", async () => {
         tx.nonce
       );
       const proposal = await module.buildProposal(id, [txHash]);
-      const queryId = await module.getQueryId(id);
+      const queryId = await module.getQueryId(id, [txHash]);
 
       const proposalHash = ethers.utils.keccak256(
         ethers.utils.toUtf8Bytes(proposal)
@@ -234,7 +253,7 @@ describe("TellorModuleERC20", async () => {
       await module.addProposal(id, [txHash]);
 
       // submit to the oracle first
-      const queryDataArgs = abiCoder.encode(["string"], [id]);
+      const queryDataArgs = getQueryDataArgs(id, [txHash], module.address);
       const queryData = abiCoder.encode(
         ["string", "bytes"],
         ["Snapshot", queryDataArgs]
@@ -272,7 +291,7 @@ describe("TellorModuleERC20", async () => {
         tx.nonce
       );
       const proposal = await module.buildProposal(id, [txHash]);
-      const queryId = await module.getQueryId(id);
+      const queryId = await module.getQueryId(id, [txHash]);
 
       const proposalHash = ethers.utils.keccak256(
         ethers.utils.toUtf8Bytes(proposal)
@@ -295,7 +314,7 @@ describe("TellorModuleERC20", async () => {
       await module.addProposal(id, [txHash]);
 
       //submit to the oracle first
-      const queryDataArgs = abiCoder.encode(["string"], [id]);
+      const queryDataArgs = getQueryDataArgs(id, [txHash], module.address);
       const queryData = abiCoder.encode(
         ["string", "bytes"],
         ["Snapshot", queryDataArgs]
@@ -333,7 +352,7 @@ describe("TellorModuleERC20", async () => {
         tx.nonce
       );
       const proposal = await module.buildProposal(id, [txHash]);
-      const queryId = await module.getQueryId(id);
+      const queryId = await module.getQueryId(id, [txHash]);
 
       const proposalHash = ethers.utils.keccak256(
         ethers.utils.toUtf8Bytes(proposal)
@@ -354,7 +373,7 @@ describe("TellorModuleERC20", async () => {
       );
 
       //submit to the oracle first
-      const queryDataArgs = abiCoder.encode(["string"], [id]);
+      const queryDataArgs = getQueryDataArgs(id, [txHash], module.address);
       const queryData = abiCoder.encode(
         ["string", "bytes"],
         ["Snapshot", queryDataArgs]
@@ -460,7 +479,7 @@ describe("TellorModuleERC20", async () => {
         ["some_tx_data"]
       );
 
-      const queryId = await module.getQueryId(id);
+      const queryId = await module.getQueryId(id, [txHash]);
 
       await mock.givenMethodReturnUint(
         module.interface.getSighash("getQueryId"),
@@ -482,7 +501,7 @@ describe("TellorModuleERC20", async () => {
         ["some_tx_data"]
       );
 
-      const queryId = await module.getQueryId(id);
+      const queryId = await module.getQueryId(id, [txHash]);
 
       await mock.givenMethodReturnUint(
         module.interface.getSighash("getQueryId"),
@@ -505,7 +524,7 @@ describe("TellorModuleERC20", async () => {
       );
 
       const proposal = await module.buildProposal(id, [txHash]);
-      const queryId = await module.getQueryId(id);
+      const queryId = await module.getQueryId(id, [txHash]);
 
       const proposalHash = ethers.utils.keccak256(
         ethers.utils.toUtf8Bytes(proposal)
@@ -516,7 +535,7 @@ describe("TellorModuleERC20", async () => {
       );
 
       //submit to the oracle first
-      const queryDataArgs = abiCoder.encode(["string"], [id]);
+      const queryDataArgs = getQueryDataArgs(id, [txHash], module.address);
       const queryData = abiCoder.encode(
         ["string", "bytes"],
         ["Snapshot", queryDataArgs]
@@ -543,7 +562,7 @@ describe("TellorModuleERC20", async () => {
     const txHash = ethers.utils.solidityKeccak256(["string"], ["some_tx_data"]);
 
     const proposal = await module.buildProposal(id, [txHash]);
-    const queryId = await module.getQueryId(id);
+    const queryId = await module.getQueryId(id, [txHash]);
     const proposalHash = ethers.utils.keccak256(
       ethers.utils.toUtf8Bytes(proposal)
     );
@@ -571,7 +590,7 @@ describe("TellorModuleERC20", async () => {
         ["string"],
         ["some_tx_data"]
       );
-      const previousQueryId = await module.getQueryId(id);
+      const previousQueryId = await module.getQueryId(id, [txHash]);
       await mock.givenMethodReturnUint(
         module.interface.getSighash("getQueryId"),
         previousQueryId
@@ -588,18 +607,18 @@ describe("TellorModuleERC20", async () => {
       );
 
       const proposal = await module.buildProposal(id, [txHash]);
-      const queryId = await module.getQueryId(id);
+      const queryId = await module.getQueryId(id, [txHash]);
       const proposalHash = ethers.utils.keccak256(
         ethers.utils.toUtf8Bytes(proposal)
       );
-      const previousQueryId = await module.getQueryId(id);
+      const previousQueryId = await module.getQueryId(id, [txHash]);
       await mock.givenMethodReturnUint(
         module.interface.getSighash("getQueryId"),
         previousQueryId
       );
 
       //submit to the oracle first
-      const queryDataArgs = abiCoder.encode(["string"], [id]);
+      const queryDataArgs = getQueryDataArgs(id, [txHash], module.address);
       const queryData = abiCoder.encode(
         ["string", "bytes"],
         ["Snapshot", queryDataArgs]
@@ -634,7 +653,7 @@ describe("TellorModuleERC20", async () => {
       const proposalHash = ethers.utils.keccak256(
         ethers.utils.toUtf8Bytes(proposal)
       );
-      const previousQueryId = await module.getQueryId(id);
+      const previousQueryId = await module.getQueryId(id, [txHash]);
       await mock.givenMethodReturnUint(
         module.interface.getSighash("getQueryId"),
         previousQueryId
@@ -642,7 +661,7 @@ describe("TellorModuleERC20", async () => {
 
       await module.addProposal(id, [txHash]);
 
-      const queryId = await module.getQueryId(id);
+      const queryId = await module.getQueryId(id, [txHash]);
       await mock.givenMethodReturnUint(
         module.interface.getSighash("getQueryId"),
         queryId
@@ -670,11 +689,11 @@ describe("TellorModuleERC20", async () => {
       );
 
       const proposal = await module.buildProposal(id, [txHash]);
-      const queryId = await module.getQueryId(id);
+      const queryId = await module.getQueryId(id, [txHash]);
       const proposalHash = ethers.utils.keccak256(
         ethers.utils.toUtf8Bytes(proposal)
       );
-      const previousQueryId = await module.getQueryId(id);
+      const previousQueryId = await module.getQueryId(id, [txHash]);
       await mock.givenMethodReturnUint(
         module.interface.getSighash("getQueryId"),
         previousQueryId
@@ -697,7 +716,7 @@ describe("TellorModuleERC20", async () => {
       );
 
       // Nonce doesn't need to increase 1 by 1
-      const finalQueryId = await module.getQueryId(id);
+      const finalQueryId = await module.getQueryId(id, [txHash]);
       await mock.givenMethodReturnUint(
         module.interface.getSighash("getQueryId"),
         finalQueryId
@@ -723,8 +742,8 @@ describe("TellorModuleERC20", async () => {
       const proposalHash = ethers.utils.keccak256(
         ethers.utils.toUtf8Bytes(proposal)
       );
-      const questionIdNonce0 = await module.getQueryId(id);
-      const questionIdNonce1 = await module.getQueryId(id);
+      const questionIdNonce0 = await module.getQueryId(id, [txHash]);
+      const questionIdNonce1 = await module.getQueryId(id, [txHash]);
 
       await mock.givenMethodReturnUint(
         module.interface.getSighash("getQueryId"),
@@ -753,11 +772,11 @@ describe("TellorModuleERC20", async () => {
       );
 
       const proposal = await module.buildProposal(id, [txHash]);
-      const queryId = await module.getQueryId(id);
+      const queryId = await module.getQueryId(id, [txHash]);
       const proposalHash = ethers.utils.keccak256(
         ethers.utils.toUtf8Bytes(proposal)
       );
-      const previousQueryId = await module.getQueryId(id);
+      const previousQueryId = await module.getQueryId(id, [txHash]);
       await mock.givenMethodReturnUint(
         module.interface.getSighash("getQueryId"),
         previousQueryId
@@ -839,7 +858,7 @@ describe("TellorModuleERC20", async () => {
         tx.operation,
         tx.nonce
       );
-      const queryId = await module.getQueryId(id);
+      const queryId = await module.getQueryId(id, [txHash]);
 
       await mock.givenMethodReturnUint(
         module.interface.getSighash("getQueryId"),
@@ -877,7 +896,7 @@ describe("TellorModuleERC20", async () => {
         tx.operation,
         tx.nonce
       );
-      const queryId = await module.getQueryId(id);
+      const queryId = await module.getQueryId(id, [txHash]);
 
       await mock.givenMethodReturnUint(
         module.interface.getSighash("getQueryId"),
@@ -920,7 +939,7 @@ describe("TellorModuleERC20", async () => {
         tx.operation,
         tx.nonce
       );
-      const queryId = await module.getQueryId(id);
+      const queryId = await module.getQueryId(id, [txHash]);
 
       await mock.givenMethodReturnUint(
         module.interface.getSighash("getQueryId"),
@@ -928,7 +947,7 @@ describe("TellorModuleERC20", async () => {
       );
 
       //submit to the oracle first
-      const queryDataArgs = abiCoder.encode(["string"], [id]);
+      const queryDataArgs = getQueryDataArgs(id, [txHash], module.address);
       const queryData = abiCoder.encode(
         ["string", "bytes"],
         ["Snapshot", queryDataArgs]
@@ -981,7 +1000,7 @@ describe("TellorModuleERC20", async () => {
         tx.nonce
       );
       const proposal = await module.buildProposal(id, [txHash]);
-      const queryId = await module.getQueryId(id);
+      const queryId = await module.getQueryId(id, [txHash]);
 
       await mock.givenMethodReturnUint(
         module.interface.getSighash("getQueryId"),
@@ -1004,7 +1023,7 @@ describe("TellorModuleERC20", async () => {
       );
 
       //submit to the oracle first
-      const queryDataArgs = abiCoder.encode(["string"], [id]);
+      const queryDataArgs = getQueryDataArgs(id, [txHash], module.address);
       const queryData = abiCoder.encode(
         ["string", "bytes"],
         ["Snapshot", queryDataArgs]
@@ -1055,7 +1074,7 @@ describe("TellorModuleERC20", async () => {
         tx.nonce
       );
       const proposal = await module.buildProposal(id, [txHash]);
-      const queryId = await module.getQueryId(id);
+      const queryId = await module.getQueryId(id, [txHash]);
 
       await mock.givenMethodReturnUint(
         module.interface.getSighash("getQueryId"),
@@ -1078,7 +1097,7 @@ describe("TellorModuleERC20", async () => {
       );
 
       //submit to the oracle first
-      const queryDataArgs = abiCoder.encode(["string"], [id]);
+      const queryDataArgs = getQueryDataArgs(id, [txHash], module.address);
       const queryData = abiCoder.encode(
         ["string", "bytes"],
         ["Snapshot", queryDataArgs]
@@ -1134,7 +1153,7 @@ describe("TellorModuleERC20", async () => {
         tx.nonce
       );
       const proposal = await module.buildProposal(id, [txHash]);
-      const queryId = await module.getQueryId(id);
+      const queryId = await module.getQueryId(id, [txHash]);
 
       await mock.givenMethodReturnUint(
         module.interface.getSighash("getQueryId"),
@@ -1157,7 +1176,7 @@ describe("TellorModuleERC20", async () => {
       );
 
       //submit to the oracle first
-      const queryDataArgs = abiCoder.encode(["string"], [id]);
+      const queryDataArgs = getQueryDataArgs(id, [txHash], module.address);
       const queryData = abiCoder.encode(
         ["string", "bytes"],
         ["Snapshot", queryDataArgs]
@@ -1200,7 +1219,6 @@ describe("TellorModuleERC20", async () => {
       ).to.be.equals(true);
     });
       
-
     it("throws if cooldown was not over", async () => {
       const { mock, module, oracle } = await setupTestWithMockAvatar();
 
@@ -1219,7 +1237,7 @@ describe("TellorModuleERC20", async () => {
         tx.operation,
         tx.nonce
       );
-      const queryId = await module.getQueryId(id);
+      const queryId = await module.getQueryId(id, [txHash]);
 
       await mock.givenMethodReturnUint(
         module.interface.getSighash("getQueryId"),
@@ -1227,7 +1245,7 @@ describe("TellorModuleERC20", async () => {
       );
 
       //submit to the oracle first
-      const queryDataArgs = abiCoder.encode(["string"], [id]);
+      const queryDataArgs = getQueryDataArgs(id, [txHash], module.address);
       const queryData = abiCoder.encode(
         ["string", "bytes"],
         ["Snapshot", queryDataArgs]
@@ -1286,14 +1304,14 @@ describe("TellorModuleERC20", async () => {
         tx.operation,
         tx.nonce
       );
-      const queryId = await module.getQueryId(id);
+      const queryId = await module.getQueryId(id, [txHash]);
 
       await mock.givenMethodReturnUint(
         module.interface.getSighash("getQueryId"),
         queryId
       );
 
-      const queryDataArgs = abiCoder.encode(["string"], [id]);
+      const queryDataArgs = getQueryDataArgs(id, [txHash], module.address);
       const queryData = abiCoder.encode(
         ["string", "bytes"],
         ["Snapshot", queryDataArgs]
@@ -1352,7 +1370,7 @@ describe("TellorModuleERC20", async () => {
         tx.operation,
         tx.nonce
       );
-      const queryId = await module.getQueryId(id);
+      const queryId = await module.getQueryId(id, [txHash]);
 
       await mock.givenMethodReturnUint(
         module.interface.getSighash("getQueryId"),
@@ -1360,7 +1378,7 @@ describe("TellorModuleERC20", async () => {
       );
 
       //submit to the oracle first
-      const queryDataArgs = abiCoder.encode(["string"], [id]);
+      const queryDataArgs = getQueryDataArgs(id, [txHash], module.address);
       const queryData = abiCoder.encode(
         ["string", "bytes"],
         ["Snapshot", queryDataArgs]
@@ -1428,7 +1446,7 @@ describe("TellorModuleERC20", async () => {
         tx.nonce
       );
       const proposal = await module.buildProposal(id, [txHash]);
-      const queryId = await module.getQueryId(id);
+      const queryId = await module.getQueryId(id, [txHash]);
 
       await mock.givenMethodReturnUint(
         module.interface.getSighash("getQueryId"),
@@ -1436,7 +1454,7 @@ describe("TellorModuleERC20", async () => {
       );
 
       //submit to the oracle first
-      const queryDataArgs = abiCoder.encode(["string"], [id]);
+      const queryDataArgs = getQueryDataArgs(id, [txHash], module.address);
       const queryData = abiCoder.encode(
         ["string", "bytes"],
         ["Snapshot", queryDataArgs]
@@ -1524,7 +1542,7 @@ describe("TellorModuleERC20", async () => {
         tx.nonce
       );
       const proposal = await module.buildProposal(id, [txHash]);
-      const queryId = await module.getQueryId(id);
+      const queryId = await module.getQueryId(id, [txHash]);
 
       await mock.givenMethodReturnUint(
         module.interface.getSighash("getQueryId"),
@@ -1532,7 +1550,7 @@ describe("TellorModuleERC20", async () => {
       );
 
       //submit to the oracle first
-      const queryDataArgs = abiCoder.encode(["string"], [id]);
+      const queryDataArgs = getQueryDataArgs(id, [txHash], module.address);
       const queryData = abiCoder.encode(
         ["string", "bytes"],
         ["Snapshot", queryDataArgs]
@@ -1646,7 +1664,7 @@ describe("TellorModuleERC20", async () => {
         tx2.operation,
         tx2.nonce
       );
-      const queryId = await module.getQueryId(id);
+      const queryId = await module.getQueryId(id, [tx1Hash, tx2Hash]);
 
       await mock.givenMethodReturnUint(
         module.interface.getSighash("getQueryId"),
@@ -1654,7 +1672,7 @@ describe("TellorModuleERC20", async () => {
       );
 
       //submit to the oracle first
-      const queryDataArgs = abiCoder.encode(["string"], [id]);
+      const queryDataArgs = getQueryDataArgs(id, [tx1Hash, tx2Hash], module.address);
       const queryData = abiCoder.encode(
         ["string", "bytes"],
         ["Snapshot", queryDataArgs]
@@ -1724,7 +1742,7 @@ describe("TellorModuleERC20", async () => {
         tx2.nonce
       );
       const proposal = await module.buildProposal(id, [tx1Hash, tx2Hash]);
-      const queryId = await module.getQueryId(id);
+      const queryId = await module.getQueryId(id, [tx1Hash, tx2Hash]);
 
       await mock.givenMethodReturnUint(
         module.interface.getSighash("getQueryId"),
@@ -1732,7 +1750,7 @@ describe("TellorModuleERC20", async () => {
       );
 
       //submit to the oracle first
-      const queryDataArgs = abiCoder.encode(["string"], [id]);
+      const queryDataArgs = getQueryDataArgs(id, [tx1Hash, tx2Hash], module.address);
       const queryData = abiCoder.encode(
         ["string", "bytes"],
         ["Snapshot", queryDataArgs]
@@ -1859,7 +1877,7 @@ describe("TellorModuleERC20", async () => {
       expect(tx1Hash).to.be.not.equals(tx2Hash);
 
       const proposal = await module.buildProposal(id, [tx1Hash, tx2Hash]);
-      const queryId = await module.getQueryId(id);
+      const queryId = await module.getQueryId(id, [tx1Hash, tx2Hash]);
 
       await mock.givenMethodReturnUint(
         module.interface.getSighash("getQueryId"),
@@ -1867,7 +1885,7 @@ describe("TellorModuleERC20", async () => {
       );
 
       // submit to the oracle first
-      const queryDataArgs = abiCoder.encode(["string"], [id]);
+      const queryDataArgs = getQueryDataArgs(id, [tx1Hash, tx2Hash], module.address);
       const queryData = abiCoder.encode(
         ["string", "bytes"],
         ["Snapshot", queryDataArgs]
@@ -1956,5 +1974,244 @@ describe("TellorModuleERC20", async () => {
         2
       );
     });
+
+    it("can't execute arbitrary non-approved tx", async () => {
+      const { avatar, mock, module, oracle } = await setupTestWithMockAvatar();
+
+      const id = "some_random_id";
+      const tx = {
+        to: user1.address,
+        value: 0,
+        data: "0xbaddad",
+        operation: 0,
+        nonce: 0,
+      };
+      const txHash = await module.getTransactionHash(
+        tx.to,
+        tx.value,
+        tx.data,
+        tx.operation,
+        tx.nonce
+      );
+
+      const txBad = {
+        to: user1.address,
+        value: 0,
+        data: "0xbad000",
+        operation: 0,
+        nonce: 0,
+      };
+      const txBadHash = await module.getTransactionHash(
+        txBad.to,
+        txBad.value,
+        txBad.data,
+        txBad.operation,
+        txBad.nonce
+      );
+
+      const proposal = await module.buildProposal(id, [txHash]);
+      const queryId = await module.getQueryId(id, [txHash]);
+
+      await mock.givenMethodReturnUint(
+        module.interface.getSighash("getQueryId"),
+        queryId
+      );
+
+      //submit to the oracle first
+      const queryDataArgs = getQueryDataArgs(id, [txHash], module.address);
+      const queryData = abiCoder.encode(
+        ["string", "bytes"],
+        ["Snapshot", queryDataArgs]
+      );
+
+      await oracle.submitValue(
+        queryId,
+        abiCoder.encode(["bool"], [true]),
+        0,
+        queryData
+      );
+
+      await module.addProposal(id, [txHash]);
+
+      const block = await ethers.provider.getBlock("latest");
+      await mock.reset();
+      await mock.givenMethodReturnBool(
+        module.interface.getSighash("getDataBefore"),
+        true
+      );
+      await mock.givenMethodReturnUint(
+        oracle.interface.getSighash("getTimestampbyQueryIdandIndex"),
+        block.timestamp
+      );
+      await mock.givenMethodReturnBool(
+        avatar.interface.getSighash("execTransactionFromModule"),
+        true
+      );
+
+      await h.advanceTime(24);
+
+      await expect(
+        module.executeProposal(
+          id,
+          [txBadHash],
+          txBad.to,
+          txBad.value,
+          txBad.data,
+          txBad.operation       
+        )
+      ).to.be.revertedWith("No query id set for provided proposal");
+
+      await expect(
+        module.executeProposal(
+          id,
+          [txHash],
+          txBad.to,
+          txBad.value,
+          txBad.data,
+          txBad.operation       
+        )
+      ).to.be.revertedWith("Unexpected transaction hash");
+
+    });
+    
   });
+
+  describe("markProposalAsInvalid", () => {
+    it("execution throws if tx marked invalid", async () => {
+      const { mock, module, oracle } = await setupTestWithMockAvatar();
+
+      const id = "some_random_id";
+      const tx = {
+        to: user1.address,
+        value: 0,
+        data: "0xbaddad",
+        operation: 0,
+        nonce: 0,
+      };
+      const txHash = await module.getTransactionHash(
+        tx.to,
+        tx.value,
+        tx.data,
+        tx.operation,
+        tx.nonce
+      );
+      const queryId = await module.getQueryId(id, [txHash]);
+
+      await mock.givenMethodReturnUint(
+        module.interface.getSighash("getQueryId"),
+        queryId
+      );
+
+      //submit to the oracle first
+      const queryDataArgs = getQueryDataArgs(id, [txHash], module.address);
+      const queryData = abiCoder.encode(
+        ["string", "bytes"],
+        ["Snapshot", queryDataArgs]
+      );
+
+      await oracle.submitValue(
+        queryId,
+        abiCoder.encode(["bool"], [true]),
+        0,
+        queryData
+      );
+
+      await h.advanceTime(23);
+
+      await module.addProposal(id, [txHash]);
+
+      await mock.givenMethodReturnBool(
+        module.interface.getSighash("getDataBefore"),
+        false
+      );
+
+      const [addr1, owner] = await ethers.getSigners();
+      await module.connect(owner).markProposalAsInvalid(id, [txHash]);
+
+      await expect(
+        module.executeProposal(
+          id,
+          [txHash],
+          tx.to,
+          tx.value,
+          tx.data,
+          tx.operation
+        )
+      ).to.be.revertedWith("Proposal has been invalidated");
+    });
+
+    it("only owner can mark invalid", async () => {
+      const { avatar, mock, module, oracle } = await setupTestWithMockAvatar();
+
+      const id = "some_random_id";
+      const tx = {
+        to: user1.address,
+        value: 0,
+        data: "0xbaddad",
+        operation: 0,
+        nonce: 0,
+      };
+      const txHash = await module.getTransactionHash(
+        tx.to,
+        tx.value,
+        tx.data,
+        tx.operation,
+        tx.nonce
+      );
+      const proposal = await module.buildProposal(id, [txHash]);
+      const queryId = await module.getQueryId(id, [txHash]);
+
+      await mock.givenMethodReturnUint(
+        module.interface.getSighash("getQueryId"),
+        queryId
+      );
+
+      //submit to the oracle first
+      const queryDataArgs = getQueryDataArgs(id, [txHash], module.address);
+      const queryData = abiCoder.encode(
+        ["string", "bytes"],
+        ["Snapshot", queryDataArgs]
+      );
+
+      await oracle.submitValue(
+        queryId,
+        abiCoder.encode(["bool"], [true]),
+        0,
+        queryData
+      );
+
+      await module.addProposal(id, [txHash]);
+
+      const block = await ethers.provider.getBlock("latest");
+      await mock.reset();
+      await mock.givenMethodReturnBool(
+        module.interface.getSighash("getDataBefore"),
+        true
+      );
+      await mock.givenMethodReturnUint(
+        oracle.interface.getSighash("getTimestampbyQueryIdandIndex"),
+        block.timestamp
+      );
+      await mock.givenMethodReturnBool(
+        avatar.interface.getSighash("execTransactionFromModule"),
+        true
+      );
+
+      await h.advanceTime(24);
+
+      await expect(
+        module.markProposalAsInvalid(id, [txHash])
+      ).to.be.revertedWith("Ownable: caller is not the owner");
+
+      await module.executeProposal(
+        id,
+        [txHash],
+        tx.to,
+        tx.value,
+        tx.data,
+        tx.operation
+      );
+    });
+  });
+
 });

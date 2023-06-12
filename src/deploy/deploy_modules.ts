@@ -11,6 +11,7 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     FIRST_ADDRESS,
     FIRST_ADDRESS,
     FIRST_ADDRESS,
+    FIRST_ADDRESS,
     0,
     60,
   ];
