@@ -7,7 +7,7 @@ The Tellor Module belongs to the [Zodiac](https://github.com/gnosis/zodiac) coll
 If you have any questions about the Tellor Module, join the [Tellor Discord](https://discord.gg/tellor).
 For more information about the Zodiac collection of tools, join the [Gnosis Discord](https://discord.gg/wwmBWTgyEq).
 
-### About the Tellor Module
+## About the Tellor Module
 
 This module allows on-chain execution based on the outcome of [Snapshot](https://snapshot.org/) proposals reported by the [Tellor](https://tellor.io/) oracle. This module is a Tellor implementation of the [Reality Module](https://github.com/gnosis/zodiac-module-reality).
 
@@ -19,26 +19,26 @@ When the query response has resolved to `true`, meaning that the transactions sh
 This module is intended to be used with [Gnosis Safe](https://github.com/gnosis/safe-contracts), but it is ultimately framework agnostic.
 For more information about the Snapshot query type, visit the [Snapshot dataspecs](https://github.com/tellor-io/dataSpecs/blob/main/types/Snapshot.md).
 
-### Setup Guides
+## Setup Guides
 
 This module can be setup either using the Zodiac App's UI or by using command line tools; both methods allow for connecting to Snapshot.
 
 [View docs for using the command line](./docs/setup_guide.md)
 
-### Features
+## Features
 - Submit proposals uniquely identified by a `proposalId` and an array of `txHashes`, to create a Tellor query that validates the execution of the connected transactions.
 - Proposals can be marked invalid by the `executor` using `markProposalInvalid`, thereby preventing the execution of the transactions related to that proposal.
 - A `cooldown` can be specified representing the minimum amount of time required to pass after the query has been answered before the transactions can be executed.
 
-### Flow
+## Flow
 - Add the proposal to the Tellor Module via the `addProposal` method.
 - The [Snapshot](https://snapshot.org/) proposal needs to pass to approve it for execution.
 - A staked [Tellor](https://tellor.io/) reporter submits the proposal result to the oracle.
 - Once the result has been submitted and the `cooldown` period has passed, the transaction(s) can be executed via `executeProposal`.
 
-### Definitions
+## Definitions
 
-#### Transaction nonce or index
+### Transaction nonce or index
 
 The `nonce` of a transaction makes it possible to have two transactions with the same `to`, `value` and `data` but still generate a different transaction hash. This is important as all hashes in the `txHashes` array should be unique. To make sure that this is the case, the module will always use the `index` of the transaction hash inside the `txHashes` array as a nonce. So the first transaction to be executed has the `nonce` with the value `0`, the second with the value `1`, and so on.
 
@@ -85,7 +85,70 @@ Note: If the expiration time is set to `0`, results will never expire. This also
 }
 ```
 
-### Solidity Compiler
+## Executing a Proposal
+
+If you've deployed a Tellor Module through the Zodiac frontend, you may be wondering how to connect it to Snapshot and execute a proposal. The steps for achieving this are as follows.
+
+### Configuring Gnosis SafeSnap on Snapshot
+
+1. Ensure you have access to a Snapshot space.
+2. Visit [snapshot.org](https://snapshot.org/) and navigate to your Snapshot space.
+3. Click on "Settings."
+4. Navigate to the "Advanced" tab.
+5. In the "Plugins" section, select "Add plugin."
+6. Search for and select "Gnosis SafeSnap."
+7. You'll encounter several plugin inputs:
+
+```json
+{
+  "safes": [
+    {
+      "network": "",
+      "umaAddress": "",
+      "tellorAddress": "",
+      "realityAddress": ""
+    }
+  ]
+}
+```
+
+8. Fill in the `network` field with the network ID where your Tellor module contract is deployed. For `tellorAddress`, input the address of your Tellor module contract, typically deployed via the Gnosis Safe frontend.
+9. Click "Add Plugin."
+
+### Adding a Proposal to Snapshot
+
+1. In your Snapshot space, select "New Proposal."
+2. Enter your proposal's name and description, then click "Continue."
+3. Under "Type," choose "Basic Voting" and then select "Continue."
+4. Add the transactions you wish to execute from your Gnosis safe.
+5. Click "Publish."
+6. Once published, your proposal page will display an "Information" panel. Click the "IPFS" link (e.g., "https://snapshot.mypinata.cloud/ipfs/bafkreia5v5qgwurmky4vy5orpxniptlswefipla6rmbjw4jjzoqtgbkdfi". Copy and save the entire hash at the end of this URL. This is your `proposalId`.
+
+Your community is now ready to participate in the Snapshot vote. Meanwhile, add your proposal to the Tellor module through the Gnosis Safe/Zodiac frontend.
+
+### Adding Proposal to Zodiac Module
+
+1. In the Zodiac frontend, select your TellorModule.
+2. For each transaction in your proposal, you'll need its transaction hash.
+3. Under "Read Contract," locate `getTransactionHash`. For each transaction, input the relevant details. Use `_operation` `0` for a simple `call`, or `1` for a delegate call (most normal operations use just a `call`). Start with `nonce` `0`, increasing by `1` for each subsequent transaction within a proposal. Reset to `0` for each unique proposals. Click "Run Query" to obtain your transaction hash.
+4. With all transaction hashes ready, click "Write Contract."
+5. Find `addProposal`, input your `proposalId` and an array of your transaction hashes in the correct order.
+6. Click "+ Add this transaction," then "Bundle Transactions." Your transaction is now assembled. Click "Submit Transaction" and "Execute" to submit it on-chain.
+
+### Executing the Proposal
+
+1. After your Snapshot proposal voting ends, you can either [tip Telliot data reporters](https://docs.tellor.io/tellor/getting-data/funding-a-feed) or [submit the data yourself](https://docs.tellor.io/tellor/reporting-data/introduction) to get your vote results on-chain.
+2. Use the [QueryId Station tool](https://tellor.io/queryidstation/) to generate `queryId` and `queryData`. Select "Custom," input "Snapshot" as the `type`, and add your Snapshot `proposalId`.
+3. If submitting results yourself, note that the submission is an ABI-encoded boolean. Submit `0x0000000000000000000000000000000000000000000000000000000000000001` for a passed proposal, or `0x0000000000000000000000000000000000000000000000000000000000000000` otherwise.
+4. Once data is submitted on-chain and the Tellor Zodiac module's `cooldown` period has passed, you can execute your proposal.
+5. In the Zodiac frontend, go to "Write Contract" and choose "executeProposalWithIndex."
+6. Submit each transaction in the correct order, incrementing `_txIndex` by `1` for each transaction, starting from `0`.
+7. After inputting all transactions, proceed to "bundle transactions," "Submit Transactions," and finally "Execute" to execute your transactions on-chain.
+
+Your proposed transactions should now be successfully executed.
+
+
+## Solidity Compiler
 
 The contracts have been developed with [Solidity 0.8.0](https://github.com/ethereum/solidity/releases/tag/v0.8.0) in mind. This version of Solidity made all arithmetic checked by default, therefore eliminating the need for explicit overflow or underflow (or other arithmetic) checks.
 <!-- 
@@ -97,6 +160,6 @@ No issues have been discovered. -->
 
 <!-- The audit results are available as a pdf in [this repo](audits/ZodiacRealityModuleSep2021.pdf) or on the [g0-group repo](https://github.com/g0-group/Audits/blob/e11752abb010f74e32a6fc61142032a10deed578/ZodiacRealityModuleSep2021.pdf). -->
 
-### Security and Liability
+## Security and Liability
 
 All contracts are WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
